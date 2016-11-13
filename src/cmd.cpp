@@ -35,7 +35,7 @@ uint16_t Cmd::GetCmd(void){
 	 *
 	 *
 	 * */
-	result = ((cmd&0x07) << 13) | (abs(bias) & 0x0FFF) | (bias < 0? (1<<12) : 0);
+	result = ((cmd&0x07) << 13) | (abs(bias) & 0x0FFF) | ((bias < 0)? (1<<12) : 0);
 
 	return result;
 }

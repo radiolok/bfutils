@@ -23,18 +23,99 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include "cmd.h"
+#include <getopt.h>
+#include <string.h>
+#include <linux/limits.h>
+#include "Bf.h"
 
 using namespace std;
 
-vector<Cmd> cmd_list_ptr;
+vector<Cmd> CmdList;
+
+bool IsABfSymbol(uint8_t c){
+	bool result = false;
+	switch (c){
+	case '>':
+	case '<':
+	case '+':
+	case '-':
+	case '.':
+	case ',':
+	case '[':
+	case ']':
+	case '~': //is a debug symbol
+		result = true;
+		break;
+	default:
+
+		break;
+	}
+	return result;
+}
 
 int main(int argc, char ** argv) {
 	if (argc < 2){
 		cerr << "Set source file to compile\r\n";
 		return -1;
 	}
-	cout << "!!!Hello World!!!" << endl; // prints !!!Hello World!!!
-	return 0;
+	int c = 0;
+	char InputPath[PATH_MAX] = {0x00};
+	uint8_t SetMode = 0;
+	while((c = getopt(argc, argv, "i:o:e")) != -1){
+		switch(c){
+		case 'i':
+			strcpy(InputPath, optarg);
+			break;
+		case 'o':
+			//output file name
+			break;
+		case 'e':
+			SetMode = 1;
+			break;
+		}
+	}
+	if (InputPath[0]){
+		std::ifstream SourceFile (argv[1], std::ifstream::binary);
+
+		if (!SourceFile.good()){
+			cerr << "Source File open error, exiting\r\n";
+					return -2;
+		}
+		else{
+			//get file length
+			SourceFile.seekg (0, SourceFile.end);
+		    size_t length = SourceFile.tellg();
+		    SourceFile.seekg (0, SourceFile.beg);
+
+		    uint8_t  *SourceBuffer = new uint8_t [length];
+
+		    SourceFile.read((char *)SourceBuffer, length);
+
+		    SourceFile.close();
+
+		    vector<Cmd> Output;
+
+			if (SetMode == 0){
+				Bf *BfCompiler = new Bf;
+				if (BfCompiler->Compile(SourceBuffer, length, Output)){
+					cerr << "Compilation error\r\n";
+					return -2;
+				}
+
+			}
+			else{
+				//TODO: Extended command set
+			}
+			//TODO: file Output save
+
+
+			delete[] SourceBuffer;
+		}
+
+
+	}
+    return 0;
 }
