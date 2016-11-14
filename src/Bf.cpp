@@ -1,5 +1,5 @@
 /*
- * Bf.cpp
+7 * Bf.cpp
  *
  *  Created on: 13 нояб. 2016 г.
  *      Author: radiolok
@@ -68,20 +68,28 @@ bool Bf::IsMemInc(uint8_t c){
 	return result;
 }
 
-
 uint8_t Bf::Translate(const uint8_t *SourceBuffer, size_t length, std::vector<Cmd> &Output){
-	uint8_t status = 0;
+	uint8_t status = SUCCESS;
 
 	uint8_t PreviousCmd = 0;
 	uint8_t CurrentCmd = 0;
 	size_t CurrentBias = 0;
 	size_t LoopMarkIterator;
-
-	for (size_t i = 0 ; i < length; ++i)
+	//Need to clear out unused symbols:
+	size_t new_length = 0;
+	uint8_t *NewBuffer = new uint8_t[length];
+	for (size_t i = 0 ; i < length; ++i){
+		if (IsASymbol(SourceBuffer[i])){
+			NewBuffer[new_length] = SourceBuffer[i];
+			++new_length;
+		}
+	}
+	//Start translating
+	for (size_t i = 0 ; i < new_length; ++i)
 	 {
-		 if (IsASymbol(SourceBuffer[i]))
+		 if (IsASymbol(NewBuffer[i]))
 		 {
-			 CurrentCmd = SourceBuffer[i];
+			 CurrentCmd = NewBuffer[i];
 			 switch (CurrentCmd){
 			 	 //For this Cmd's we need to calc shift:
 			 	case '>':
@@ -90,7 +98,7 @@ uint8_t Bf::Translate(const uint8_t *SourceBuffer, size_t length, std::vector<Cm
 				case '-':
 					if (CurrentCmd == PreviousCmd){
 						CurrentBias ++;
-						if (i  == (length -1)){//Write last command:
+						if (i  == (new_length -1)){//Write last command:
 							Output.push_back(Cmd(CurrentCmd, CurrentBias));
 						}
 					}
@@ -117,12 +125,69 @@ uint8_t Bf::Translate(const uint8_t *SourceBuffer, size_t length, std::vector<Cm
 	return status;
 }
 
+size_t Bf::FindLoopEnd(std::vector<Cmd> &Output, size_t CurrentIp){
+	size_t i = 1;
+	size_t NewIp = CurrentIp;
+	size_t MaxIp = Output.size();
+	while (i){
+		NewIp++;
+		if (NewIp >=MaxIp){
+			return 0;
+		}
+		switch(Output[NewIp].GetCmdChar()){
+		case '[':
+			i++;
+			break;
+		case ']':
+			i--;
+			break;
+		}
+	}
+	//We found loop ending:
+	Output[NewIp].SetBias(-(NewIp-CurrentIp));
+	return NewIp;
+}
 
-uint8_t Bf::Compile(const uint8_t *SourceBuffer, size_t length, std::vector<Cmd> &Output){
 
-	uint8_t status = 0;
+uint8_t Bf::Linking(std::vector<Cmd> &Output){
+	uint8_t status = SUCCESS;
+	//Let's Get Pointers for loops:
+	//[ should get shift > 0
+	//] should get shift < 0
+	size_t CurrentIp = 0;
+	size_t MaxIp = Output.size();
+	if (MaxIp == CurrentIp){
+		return LINKING_ERROR;
+	}
 
-	status = Translate(SourceBuffer, length, Output);
+	for (CurrentIp = 0; CurrentIp < MaxIp; CurrentIp++){
+		if (Output[CurrentIp].GetCmdChar() == '['){
+			//Let's find Loop Closing:
+			size_t CloseIp = FindLoopEnd(Output, CurrentIp);
+			if (CloseIp){
+				Output[CurrentIp].SetBias(CloseIp-CurrentIp);
+			}
+			else{
+				return LINKING_ERROR;
+			}
+		}
+	}
 
 	return status;
 }
+
+uint8_t Bf::Compile(const uint8_t *SourceBuffer, size_t length, std::vector<Cmd> &Output){
+
+	uint8_t status = SUCCESS;
+
+	status = Translate(SourceBuffer, length, Output);
+	if (status){
+		return TRANSLATION_ERROR;
+	}
+	status = Linking(Output);
+	if (status){
+		return LINKING_ERROR;
+	}
+	return status;
+}
+

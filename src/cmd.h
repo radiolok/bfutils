@@ -20,10 +20,10 @@ private:
 		std::string name;
 
 public:
-		Cmd(uint8_t _cmd);
-		Cmd (uint8_t _cmd, int16_t _bias);
-		Cmd (uint8_t _cmd, std::string _name);
-		Cmd(uint8_t _cmd, int16_t _bias, std::string _name);
+	Cmd(uint8_t _cmd);
+	Cmd (uint8_t _cmd, int16_t _bias);
+	Cmd (uint8_t _cmd, std::string _name);
+	Cmd(uint8_t _cmd, int16_t _bias, std::string _name);
 	virtual ~Cmd();
 
 	void SetBias(int16_t _bias){bias = _bias;};
@@ -32,6 +32,7 @@ public:
 	void SetName(const std::string &_name){name = _name;};
 	std::string GetName(void){return name;};
 
+	uint8_t GetCmdChar(){return cmd;};
 	uint16_t GetCmd(void);
 
 };
