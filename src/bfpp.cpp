@@ -30,6 +30,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include <string.h>
 #include <linux/limits.h>
 #include "Bf.h"
+#include <iomanip>
 
 using namespace std;
 
@@ -56,32 +57,88 @@ bool IsABfSymbol(uint8_t c){
 	return result;
 }
 
+uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path){
+	uint8_t status = 0;
+	if (binaryastext){
+		std::ofstream OutputFile (path, std::ofstream::out);
+		if (!OutputFile.good()){
+			cerr << "Output File open error, exiting\r\n";
+			return OPEN_OUTPUT_ERROR;
+		}
+		else{
+			uint16_t *buffer = new uint16_t [Output.size()];
+			//copy data:
+			for (auto iter = Output.begin(); iter < Output.end(); ++iter, ++buffer){
+			//Save:
+				OutputFile << setfill('0') << setw(4) << hex << iter->GetCmd()  << endl;
+			}
+			OutputFile.close();
+		}
+
+
+	}
+	else{
+		std::ofstream OutputFile (path, std::ofstream::binary);
+		if (!OutputFile.good()){
+			cerr << "Output File open error, exiting\r\n";
+			return OPEN_OUTPUT_ERROR;
+		}
+		else{
+			uint16_t *buffer = new uint16_t [Output.size()];
+			//copy data:
+			for (auto iter = Output.begin(); iter < Output.end(); ++iter, ++buffer){
+				*buffer = iter->GetCmd();
+			}
+			//Save:
+			OutputFile.write((char*)buffer, sizeof(uint16_t)*Output.size());
+			OutputFile.close();
+		}
+
+	}
+
+	return status;
+}
+
 int main(int argc, char ** argv) {
 	if (argc < 2){
+		cerr << "Usage:\r\n";
+		cerr << argv[0] << " -i source file [-o output file] [-e -s]\r\n";
+		cerr << "\t-e - enable extended instruction set[UNSUPPORTED]\r\n";
+		cerr << "\t-s - save output binary in text format\r\n";
 		cerr << "Set source file to compile\r\n";
 		return -1;
 	}
 	int c = 0;
 	char InputPath[PATH_MAX] = {0x00};
-	uint8_t SetMode = 0;
-	while((c = getopt(argc, argv, "i:o:e")) != -1){
+	char OutputPath[PATH_MAX] = {0x00};
+	bool SetCompilerMode = false;
+	bool SaveBinaryAsText = false;
+	bool DebugSymbols = false;
+	while((c = getopt(argc, argv, "i:o:es")) != -1){
 		switch(c){
 		case 'i':
 			strcpy(InputPath, optarg);
 			break;
 		case 'o':
-			//output file name
+			strcpy(OutputPath, optarg);
 			break;
 		case 'e':
-			SetMode = 1;
+			SetCompilerMode = true;
 			break;
+		case 's':
+			SaveBinaryAsText = true;
+			break;
+		case 'd':
+			DebugSymbols = true;
+			break;
+
 		}
 	}
 	if (InputPath[0]){
-		std::ifstream SourceFile (argv[1], std::ifstream::binary);
+		std::ifstream SourceFile (InputPath, std::ifstream::binary);
 
 		if (!SourceFile.good()){
-			cerr << "Source File open error, exiting\r\n";
+			cerr << "Source File"<< InputPath <<" open error, exiting\r\n";
 					return -2;
 		}
 		else{
@@ -98,7 +155,7 @@ int main(int argc, char ** argv) {
 
 		    vector<Cmd> Output;
 
-			if (SetMode == 0){
+			if (SetCompilerMode == 0){
 				Bf *BfCompiler = new Bf;
 				if (BfCompiler->Compile(SourceBuffer, length, Output)){
 					cerr << "Compilation error\r\n";
@@ -109,7 +166,7 @@ int main(int argc, char ** argv) {
 			else{
 				//TODO: Extended command set
 			}
-			//TODO: file Output save
+			SaveOutput(Output, SaveBinaryAsText, ((*OutputPath)? OutputPath : "a.out"));
 
 
 			delete[] SourceBuffer;
