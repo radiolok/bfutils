@@ -11,7 +11,7 @@
 #include <inttypes.h>
 #include <vector>
 #include "cmd.h"
-
+#include "iostream"
 #include "df_definitions.h"
 
 class Bf {

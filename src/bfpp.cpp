@@ -64,13 +64,13 @@ string GetDebugSymbol(Cmd cmd){
 		result << "\tPTR(" << cmd.GetBias() << ")";
 		break;
 	case '<':
-		result << "\tPTR(" << cmd.GetBias() << ")";
+		result << "\tPTR(-" << cmd.GetBias() << ")";
 		break;
 	case '+':
 		result << "\tADD(" << cmd.GetBias() << ")";
 		break;
 	case '-':
-		result << "\tSUB(" << cmd.GetBias() << ")";
+		result << "\tADD(-" << cmd.GetBias() << ")";
 		break;
 	case '.':
 		result << "\tPRINT";
@@ -105,7 +105,7 @@ uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path
 			for (auto iter = Output.begin(); iter < Output.end(); ++iter, ++ip){
 			//Save:
 				OutputFile << "IP:0x" << setfill('0') << setw(4) << hex << ip << " "
-						<< "IP:0x"  << setfill('0') << setw(4) << hex << iter->GetCmd()
+						<< "\tCMD:0x"  << setfill('0') << setw(4) << hex << iter->GetCmd()
 				<< (DebugSymbols? GetDebugSymbol(*iter) : "") << endl;
 			}
 			OutputFile.close();
@@ -122,11 +122,21 @@ uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path
 		else{
 			uint16_t *buffer = new uint16_t [Output.size()];
 			//copy data:
+			union {
+				uint16_t le;
+				struct {
+					uint8_t low;
+					uint8_t high;
+				}sep;
+			} cmd;
 			for (auto iter = Output.begin(); iter < Output.end(); ++iter, ++buffer){
-				*buffer = iter->GetCmd();
+				//*buffer = iter->GetCmd();
+				cmd.le = iter->GetCmd();
+				OutputFile.write(reinterpret_cast<const char *>(&cmd.sep.high), sizeof(cmd.sep.high));
+				OutputFile.write(reinterpret_cast<const char *>(&cmd.sep.low), sizeof(cmd.sep.low));
 			}
 			//Save:
-			OutputFile.write((char*)buffer, sizeof(uint16_t)*Output.size());
+//			OutputFile.write((char*)buffer, sizeof(uint16_t)*Output.size());
 			OutputFile.close();
 		}
 

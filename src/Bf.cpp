@@ -71,7 +71,6 @@ bool Bf::IsMemInc(uint8_t c){
 uint8_t Bf::Translate(const uint8_t *SourceBuffer, size_t length, std::vector<Cmd> &Output){
 	uint8_t status = SUCCESS;
 
-	uint8_t PreviousCmd = 0;
 	uint8_t CurrentCmd = 0;
 	size_t CurrentBias = 0;
 	size_t LoopMarkIterator;
@@ -96,13 +95,14 @@ uint8_t Bf::Translate(const uint8_t *SourceBuffer, size_t length, std::vector<Cm
 				case '<':
 				case '+':
 				case '-':
-					if (CurrentCmd == PreviousCmd){
-						CurrentBias ++;
-						if (i  == (new_length -1)){//Write last command:
+					CurrentBias++;
+					if (i < new_length -1){
+						if (CurrentCmd != NewBuffer[i+1]){
 							Output.push_back(Cmd(CurrentCmd, CurrentBias));
+							CurrentBias = 0;
 						}
 					}
-					else{//We got new command:
+					else{
 						Output.push_back(Cmd(CurrentCmd, CurrentBias));
 						CurrentBias = 0;
 					}
@@ -119,7 +119,6 @@ uint8_t Bf::Translate(const uint8_t *SourceBuffer, size_t length, std::vector<Cm
 					CurrentBias = 0;
 					break;
  			 }
-			 PreviousCmd = CurrentCmd;
 		 }
 	 }
 	return status;
@@ -184,6 +183,7 @@ uint8_t Bf::Compile(const uint8_t *SourceBuffer, size_t length, std::vector<Cmd>
 	if (status){
 		return TRANSLATION_ERROR;
 	}
+
 	status = Linking(Output);
 	if (status){
 		return LINKING_ERROR;
