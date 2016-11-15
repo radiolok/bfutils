@@ -57,7 +57,41 @@ bool IsABfSymbol(uint8_t c){
 	return result;
 }
 
-uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path){
+string GetDebugSymbol(Cmd cmd){
+	std::stringstream result;
+	switch (cmd.GetCmdChar()){
+	case '>':
+		result << "\tPTR(" << cmd.GetBias() << ")";
+		break;
+	case '<':
+		result << "\tPTR(" << cmd.GetBias() << ")";
+		break;
+	case '+':
+		result << "\tADD(" << cmd.GetBias() << ")";
+		break;
+	case '-':
+		result << "\tSUB(" << cmd.GetBias() << ")";
+		break;
+	case '.':
+		result << "\tPRINT";
+		break;
+	case ',':
+		result << "\tGET";
+		break;
+	case '[':
+		result << "\tJZ(" << cmd.GetBias() << ")";
+		break;
+	case ']':
+		result << "\tJNZ(" << cmd.GetBias() << ")";
+		break;
+	default:
+
+		break;
+	}
+	return result.str();
+}
+
+uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path, bool DebugSymbols){
 	uint8_t status = 0;
 	if (binaryastext){
 		std::ofstream OutputFile (path, std::ofstream::out);
@@ -66,11 +100,13 @@ uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path
 			return OPEN_OUTPUT_ERROR;
 		}
 		else{
-			uint16_t *buffer = new uint16_t [Output.size()];
+			size_t ip = 0;
 			//copy data:
-			for (auto iter = Output.begin(); iter < Output.end(); ++iter, ++buffer){
+			for (auto iter = Output.begin(); iter < Output.end(); ++iter, ++ip){
 			//Save:
-				OutputFile << setfill('0') << setw(4) << hex << iter->GetCmd()  << endl;
+				OutputFile << "IP:0x" << setfill('0') << setw(4) << hex << ip << " "
+						<< "IP:0x"  << setfill('0') << setw(4) << hex << iter->GetCmd()
+				<< (DebugSymbols? GetDebugSymbol(*iter) : "") << endl;
 			}
 			OutputFile.close();
 		}
@@ -102,9 +138,10 @@ uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path
 int main(int argc, char ** argv) {
 	if (argc < 2){
 		cerr << "Usage:\r\n";
-		cerr << argv[0] << " -i source file [-o output file] [-e -s]\r\n";
+		cerr << argv[0] << " -i source file [-o output file] [-e -s -d]\r\n";
 		cerr << "\t-e - enable extended instruction set[UNSUPPORTED]\r\n";
 		cerr << "\t-s - save output binary in text format\r\n";
+		cerr << "\t-d - enable debug symbols for text format\r\n";
 		cerr << "Set source file to compile\r\n";
 		return -1;
 	}
@@ -114,7 +151,7 @@ int main(int argc, char ** argv) {
 	bool SetCompilerMode = false;
 	bool SaveBinaryAsText = false;
 	bool DebugSymbols = false;
-	while((c = getopt(argc, argv, "i:o:es")) != -1){
+	while((c = getopt(argc, argv, "i:o:esd")) != -1){
 		switch(c){
 		case 'i':
 			strcpy(InputPath, optarg);
@@ -166,7 +203,7 @@ int main(int argc, char ** argv) {
 			else{
 				//TODO: Extended command set
 			}
-			SaveOutput(Output, SaveBinaryAsText, ((*OutputPath)? OutputPath : "a.out"));
+			SaveOutput(Output, SaveBinaryAsText, ((*OutputPath)? OutputPath : "a.out"), DebugSymbols);
 
 
 			delete[] SourceBuffer;
