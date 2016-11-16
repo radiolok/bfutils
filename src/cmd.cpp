@@ -25,6 +25,33 @@ Cmd::~Cmd() {
 	// TODO Auto-generated destructor stub
 }
 
+uint8_t Cmd::Symbol(uint8_t _cmd){
+	bool result = false;
+	switch (_cmd){
+	case '>':
+		break;
+	case '<':
+		break;
+	case '+':
+		break;
+	case '-':
+		break;
+	case '.':
+		break;
+	case ',':
+		break;
+	case '[':
+		break;
+	case ']':
+		break;
+	default:
+
+		break;
+	}
+
+	return result;
+}
+
 
 uint16_t Cmd::GetCmd(void){
 	uint16_t result = 0;
@@ -35,7 +62,41 @@ uint16_t Cmd::GetCmd(void){
 	 *
 	 *
 	 * */
-	result = ((cmd&0x07) << 13) | (abs(bias) & 0x0FFF) | ((bias < 0)? (1<<12) : 0);
 
+	/* 000 - +-, if - bit 12 = 1
+	 * 001 - <>, if > bit 12 = 1
+	 * 010 - Console Input
+	 * 011 - Console Output
+	 * 100 - JZ
+	 * 101 - JNZ
+	 * 110 - LD_IP
+	 * 111 - LD_AP
+	 * */
+	switch (cmd){
+	case '>':
+		result = (1 << 13) | (abs(bias) & 0x0FFF);
+		break;
+	case '<':
+		result = (1 << 13) | (1 << 12) | (abs(bias) & 0x0FFF);
+		break;
+	case '+':
+		result = (abs(bias) & 0x0FFF);
+		break;
+	case '-':
+		result = (0x1 << 12) | (abs(bias) & 0x0FFF);//Sign
+		break;
+	case '.':
+		result = (0x3 << 13);
+		break;
+	case ',':
+		result = (0x2 << 13);
+		break;
+	case '[':
+		result = (0x4 << 13) |  (abs(bias) & 0x0FFF) | ((bias < 0)? (1<<12) : 0);
+		break;
+	case ']':
+		result = (0x5 << 13)|  (abs(bias) & 0x0FFF) | ((bias < 0)? (1<<12) : 0);
+		break;
+	}
 	return result;
 }

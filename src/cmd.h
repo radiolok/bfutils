@@ -13,6 +13,8 @@
 #include <string>
 #include <stdlib.h>
 
+
+
 class Cmd {
 private:
 		uint8_t cmd;
@@ -32,6 +34,7 @@ public:
 	void SetName(const std::string &_name){name = _name;};
 	std::string GetName(void){return name;};
 
+	uint8_t Symbol(uint8_t _cmd);
 	uint8_t GetCmdChar(){return cmd;};
 	uint16_t GetCmd(void);
 
