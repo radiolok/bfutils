@@ -30,6 +30,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include <string.h>
 #include <linux/limits.h>
 #include "Bf.h"
+#include "df_definitions.h"
 #include <iomanip>
 
 using namespace std;
@@ -91,6 +92,30 @@ string GetDebugSymbol(Cmd cmd){
 	return result.str();
 }
 
+uint8_t GetHeader(std::vector<Cmd> &Output, std::vector<WordToBigEndian_t> &Data, BfHeader_t &Header){
+	uint8_t status = SUCCESS;
+	Header.Magic.Word = BF_MAGIC;
+	Header.ImageBase.Word = 0;
+	Header.Code.Position.Word = 0;
+	Header.Code.Length.Word = Output.size();
+
+	Header.Data.Position.Word = Header.Code.Position.Word + Header.Code.Length.Word + BF_INDENT;
+	Header.Data.Length.Word = Data.size();
+
+	return status;
+}
+
+uint8_t WriteHeader(std::ofstream &File, BfHeader_t &BfHeader){
+	uint8_t status = SUCCESS;
+	File << BfHeader.Magic.Byte.high << BfHeader.Magic.Byte.low;
+	File << BfHeader.ImageBase.Byte.high << BfHeader.ImageBase.Byte.low;
+	File << BfHeader.Code.Position.Byte.high << BfHeader.Code.Position.Byte.low;
+	File << BfHeader.Code.Length.Byte.high << BfHeader.Code.Length.Byte.low;
+	File << BfHeader.Data.Position.Byte.high << BfHeader.Data.Position.Byte.low;
+	File << BfHeader.Data.Length.Byte.high << BfHeader.Data.Length.Byte.low;
+	return status;
+}
+
 uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path, bool DebugSymbols){
 	uint8_t status = 0;
 	if (binaryastext){
@@ -120,20 +145,21 @@ uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path
 			return OPEN_OUTPUT_ERROR;
 		}
 		else{
+			vector<WordToBigEndian_t> Data;
+			BfHeader_t BfHeader;
+
+			GetHeader(Output, Data, BfHeader);
+
+			WriteHeader(OutputFile, BfHeader);
+
 			uint16_t *buffer = new uint16_t [Output.size()];
 			//copy data:
-			union {
-				uint16_t le;
-				struct {
-					uint8_t low;
-					uint8_t high;
-				}sep;
-			} cmd;
+			WordToBigEndian_t cmd;
 			for (auto iter = Output.begin(); iter < Output.end(); ++iter, ++buffer){
 				//*buffer = iter->GetCmd();
-				cmd.le = iter->GetCmd();
-				OutputFile.write(reinterpret_cast<const char *>(&cmd.sep.high), sizeof(cmd.sep.high));
-				OutputFile.write(reinterpret_cast<const char *>(&cmd.sep.low), sizeof(cmd.sep.low));
+				cmd.Word = iter->GetCmd();
+				OutputFile.write(reinterpret_cast<const char *>(&cmd.Byte.high), sizeof(cmd.Byte.high));
+				OutputFile.write(reinterpret_cast<const char *>(&cmd.Byte.low), sizeof(cmd.Byte.low));
 			}
 			//Save:
 //			OutputFile.write((char*)buffer, sizeof(uint16_t)*Output.size());
@@ -213,7 +239,8 @@ int main(int argc, char ** argv) {
 			else{
 				//TODO: Extended command set
 			}
-			SaveOutput(Output, SaveBinaryAsText, ((*OutputPath)? OutputPath : "a.out"), DebugSymbols);
+			SaveOutput(Output, SaveBinaryAsText, ((*OutputPath)? OutputPath :
+					(SaveBinaryAsText? "a.asm": "a.out")), DebugSymbols);
 
 
 			delete[] SourceBuffer;
