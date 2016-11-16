@@ -22,6 +22,7 @@ private:
 		std::string name;
 
 public:
+	Cmd(uint16_t _bin);
 	Cmd(uint8_t _cmd);
 	Cmd (uint8_t _cmd, int16_t _bias);
 	Cmd (uint8_t _cmd, std::string _name);

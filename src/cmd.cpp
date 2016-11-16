@@ -7,6 +7,48 @@
 
 #include "cmd.h"
 
+Cmd::Cmd(uint16_t _bin){
+	/* 000 - +-, if - bit 12 = 1
+	 * 001 - <>, if > bit 12 = 1
+	 * 010 - Console Input
+	 * 011 - Console Output
+	 * 100 - JZ
+	 * 101 - JNZ
+	 * 110 - LD_IP
+	 * 111 - LD_AP
+	 * */
+	cmd = 0;
+	uint16_t cmd_bin = ((_bin>>13) & 0x0007);
+	bool sign = ((_bin >> 12)&0x01)? true: false;
+	switch (cmd_bin){
+	case 0:
+		cmd = sign? '-':'+';
+		break;
+	case 1:
+		cmd = sign? '<': '>';
+		break;
+	case 2:
+		cmd = ',';
+		break;
+	case 3:
+		cmd = '.';
+		break;
+	case 4:
+		cmd = '[';
+		break;
+	case 5:
+		cmd = ']';
+		break;
+	case 6:
+		cmd = 'I';
+		break;
+	case 7:
+		cmd = 'A';
+		break;
+	}
+	bias = (_bin&0x0FFF);
+
+}
 
 Cmd::Cmd(uint8_t _cmd):cmd(_cmd), bias(0){
 
