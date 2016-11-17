@@ -12,7 +12,7 @@
 #include <vector>
 #include "cmd.h"
 #include "iostream"
-#include "bf_definitions.h"
+#include "bfutils.h"
 
 class Bf {
 private:

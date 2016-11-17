@@ -30,8 +30,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include <string.h>
 #include <linux/limits.h>
 #include "Bf.h"
-#include "bf_definitions.h"
+#include "bfutils.h"
 #include <iomanip>
+#include <sstream>
+
 
 using namespace std;
 
