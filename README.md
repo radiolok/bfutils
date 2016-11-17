@@ -1,6 +1,7 @@
 # Brainfuck utils
 
-Brainfuck programmig tools for Von-Neumann extended brainfuck computer
+Brainfuck programmig tools for Von-Neumann extended brainfuck computer.
+
 Shared address space, 64 KWords * 16 bit each Word
 
 # bfpp
