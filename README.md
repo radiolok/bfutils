@@ -1,5 +1,21 @@
+# Brainfuck utils
+
+Brainfuck programmig tools for Von-Neumann extended brainfuck computer
+
 # bfpp
-Relay Brainfuck PC computer extended BF++ compiler
+
+Brainfuck compiler. Usage:
+```
+bfpp -i source_file [-o output_file] [-e] [-s [-d]]
+-i - path to brainfuck source file
+-o - path to output file. By default: a.out for binary, a.asm for text
+-e - enabling extended instruction set [CURRENTLY UNSUPPORTED]
+-s - save binary as text
+-d - add debug symbols into text output
+```
+# Binary
+
+It is a binary Big-Engian uin16_t file which contain BfHeader and two sections - code section and data section. 
 
 # BF Header
 
@@ -14,4 +30,15 @@ struct{
   uint16_t Pos;//Position of Data segment. After loading AP = Pos
   uint16_t Length;//Length of Segment to load
 }Data;
+```
+
+# bfutils building using cmake
+
+Currently bfutils doesn't require any external libraries. Just clone repo and build it with CMake:
+
+```
+git clone https://github.com/radiolok/bfutils.git
+mkdir bfutils/build
+cd bfutils/build
+cmake ../
 ```
