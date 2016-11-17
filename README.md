@@ -13,6 +13,15 @@ bfpp -i source_file [-o output_file] [-e] [-s [-d]]
 -s - save binary as text
 -d - add debug symbols into text output
 ```
+# bfrun
+Brainfuck emulator. Usage:
+```
+bfrun -f BF_binary [-p -x]
+-p - switch emulator to protected mode. AP and IP should be in their sections
+-s - switch emulator to 16 bit mode. By default 8-bit classic mode.
+```
+
+
 # Binary
 
 It is a binary Big-Engian uin16_t file which contain BfHeader and two sections - code section and data section. 
