@@ -13,11 +13,9 @@ set(COMMON_LIB ${PROJECT_SOURCE_DIR}/../common)
 
 include_directories(${COMMON_LIB})
 
-add_library(cmd ${COMMON_LIB}/cmd.cpp)
+add_library(Console ${COMMON_LIB}/Console.cpp)
 
-add_library(bf Bf.cpp)
+add_executable(bfrun bfrun.cpp)
 
-add_executable(bfpp bfpp.cpp)
-
-target_link_libraries(bfpp bf cmd)
+target_link_libraries(bfrun Console)
 
