@@ -1,6 +1,8 @@
 # Brainfuck utils
 
-Brainfuck programmig tools for Von-Neumann extended brainfuck computer
+Brainfuck programmig tools for Von-Neumann extended brainfuck computer.
+
+Shared address space, 64 KWords * 16 bit each Word
 
 # bfpp
 
@@ -21,10 +23,9 @@ bfrun -f BF_binary [-p -x]
 -s - switch emulator to 16 bit mode. By default 8-bit classic mode.
 ```
 
-
 # Binary
 
-It is a binary Big-Engian uin16_t file which contain BfHeader and two sections - code section and data section. 
+It is a binary Big-Endian uint16_t file which contain BfHeader and two sections - code section and data section. 
 
 # BF Header
 
