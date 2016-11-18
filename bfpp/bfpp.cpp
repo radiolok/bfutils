@@ -97,12 +97,17 @@ string GetDebugSymbol(Cmd cmd){
 uint8_t GetHeader(std::vector<Cmd> &Output, std::vector<WordToBigEndian_t> &Data, BfHeader_t &Header){
 	uint8_t status = SUCCESS;
 	Header.Magic.Word = BF_MAGIC;
-	Header.ImageBase.Word = 0;
-	Header.Code.Position.Word = 0;
-	Header.Code.Length.Word = Output.size();
+	Header.Machine.Word = 0;
 
-	Header.Data.Position.Word = Header.Code.Position.Word + Header.Code.Length.Word + BF_INDENT;
+	Header.Code.Base.Word = 0;
+	Header.Code.Length.Word = Output.size();
+	Header.Code.Position.Word = 0;
+	Header.Code.Flags.Word = 0;
+
+	Header.Data.Base.Word = Header.Code.Base.Word + Header.Code.Length.Word + BF_INDENT;
 	Header.Data.Length.Word = Data.size();
+	Header.Data.Position.Word = Header.Code.Base.Word + Header.Code.Length.Word + BF_INDENT;
+	Header.Data.Flags.Word = 0;
 
 	return status;
 }
@@ -110,11 +115,18 @@ uint8_t GetHeader(std::vector<Cmd> &Output, std::vector<WordToBigEndian_t> &Data
 uint8_t WriteHeader(std::ofstream &File, BfHeader_t &BfHeader){
 	uint8_t status = SUCCESS;
 	File << BfHeader.Magic.Byte.high << BfHeader.Magic.Byte.low;
-	File << BfHeader.ImageBase.Byte.high << BfHeader.ImageBase.Byte.low;
-	File << BfHeader.Code.Position.Byte.high << BfHeader.Code.Position.Byte.low;
+	File << BfHeader.Machine.Byte.high << BfHeader.Machine.Byte.low;
+	
+	File << BfHeader.Code.Base.Byte.high << BfHeader.Code.Base.Byte.low;
 	File << BfHeader.Code.Length.Byte.high << BfHeader.Code.Length.Byte.low;
-	File << BfHeader.Data.Position.Byte.high << BfHeader.Data.Position.Byte.low;
+	File << BfHeader.Code.Position.Byte.high << BfHeader.Code.Position.Byte.low;
+	File << BfHeader.Code.Flags.Byte.high << BfHeader.Code.Flags.Byte.low;
+	
+	File << BfHeader.Data.Base.Byte.high << BfHeader.Data.Base.Byte.low;
 	File << BfHeader.Data.Length.Byte.high << BfHeader.Data.Length.Byte.low;
+	File << BfHeader.Data.Position.Byte.high << BfHeader.Data.Position.Byte.low;
+	File << BfHeader.Data.Flags.Byte.high << BfHeader.Data.Flags.Byte.low;
+	
 	return status;
 }
 

@@ -62,25 +62,12 @@ uint8_t  LoadImage(std::ifstream &File, BfHeader_t *Header, uint16_t *MemoryPtr)
 	File.read(reinterpret_cast<char *>(Header), sizeof(BfHeader_t));
 
 	swapLEtoBE((WordToBigEndian_t*)(Header), sizeof(BfHeader_t));
-	BfSection_t Code;
-	Code.Position.Byte.high = Header->Code.Position.Byte.high;
-	Code.Position.Byte.low = Header->Code.Position.Byte.low;
 
-	Code.Length.Byte.high = Header->Code.Length.Byte.high;
-	Code.Length.Byte.low = Header->Code.Length.Byte.low;
-
-	BfSection_t Data;
-	Data.Position.Byte.high = Header->Data.Position.Byte.high;
-	Data.Position.Byte.low = Header->Data.Position.Byte.low;
-
-	Data.Length.Byte.high = Header->Data.Length.Byte.high;
-	Data.Length.Byte.low = Header->Data.Length.Byte.low;
-
-	File.read(reinterpret_cast<char *>(MemoryPtr+Code.Position.Word), sizeof(uint16_t)*Code.Length.Word);
-	swapLEtoBE((WordToBigEndian_t*)(MemoryPtr+Code.Position.Word),sizeof(uint16_t)*Code.Length.Word);
-	if (Data.Length.Word != 0){
-		File.read(reinterpret_cast<char *>(MemoryPtr+Data.Position.Word), sizeof(uint16_t)*Data.Length.Word);
-		swapLEtoBE((WordToBigEndian_t*)(MemoryPtr+Data.Position.Word), sizeof(uint16_t)*Data.Length.Word);
+	File.read(reinterpret_cast<char *>(MemoryPtr+Header->Code.Base.Word), sizeof(uint16_t)*Header->Code.Length.Word);
+	swapLEtoBE((WordToBigEndian_t*)(MemoryPtr+Header->Code.Base.Word),sizeof(uint16_t)*Header->Code.Length.Word);
+	if (Header->Data.Length.Word != 0){
+		File.read(reinterpret_cast<char *>(MemoryPtr+Header->Data.Base.Word), sizeof(uint16_t)*Header->Data.Length.Word);
+		swapLEtoBE((WordToBigEndian_t*)(MemoryPtr+Header->Data.Base.Word), sizeof(uint16_t)*Header->Data.Length.Word);
 	}
 
 	return status;
@@ -98,7 +85,7 @@ uint8_t LoadBF(char *fName, BfHeader_t *Header, uint16_t *MemoryPtr){
 
 bool SegFault(const BfSection_t &section, uint16_t Ptr){
 	bool result = false;
-	if ((Ptr < section.Position.Word) ||(Ptr > section.Position.Word + section.Length.Word)){
+	if ((Ptr < section.Base.Word) ||(Ptr > section.Base.Word + section.Length.Word)){
 		result = true;
 	}
 	return (GetProtectedMode()? result : false);
@@ -165,7 +152,7 @@ uint8_t ExecCmd(BfHeader_t *Header, uint16_t *MemoryPtr, uint16_t &IP, uint16_t 
 		}
 		break;
 	case 7://Set AP
-		AP = Header->Data.Position.Word + bias;
+		AP = Header->Data.Base.Word + bias;
 		if (SegFault(Header->Data, AP)){
 			return -5;
 		}
@@ -188,7 +175,7 @@ uint8_t ExecCode(BfHeader_t *Header, uint16_t *MemoryPtr){
 		}
 
 		IP++;
-	}while (IP < Header->Code.Position.Word + Header->Code.Length.Word);
+	}while (IP < Header->Code.Base.Word + Header->Code.Length.Word);
 	cerr << "\r\nIstructions_retired:" << i << "\r\n";
 	return status;
 }

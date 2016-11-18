@@ -27,13 +27,15 @@ typedef union  _WordToBigEndian_t{
 }WordToBigEndian_t;
 
 typedef struct _BfSection_t{
-	WordToBigEndian_t Position;
+	WordToBigEndian_t Base;
 	WordToBigEndian_t Length;
+	WordToBigEndian_t Position;
+	WordToBigEndian_t Flags;
 }BfSection_t;
 
 typedef struct _BfHeader_t{
 	WordToBigEndian_t Magic;
-	WordToBigEndian_t ImageBase;
+	WordToBigEndian_t Machine;
 	BfSection_t Code;
 	BfSection_t Data;
 } BfHeader_t;
