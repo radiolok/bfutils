@@ -98,7 +98,7 @@ string GetDebugSymbol(Cmd cmd){
 uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path, bool DebugSymbols){
 	uint8_t status = 0;
 	if (binaryastext){
-		std::fstream OutputFile (path, std::fstream::out);
+		std::fstream OutputFile (path, std::fstream::out| std::fstream::in);
 		if (!OutputFile.good()){
 			cerr << "Output File open error, exiting\r\n";
 			return OPEN_OUTPUT_ERROR;

@@ -76,10 +76,11 @@ void Section::WriteHeader(std::fstream &File){
 void Section::WriteData(std::fstream &File){
 	
 	//Remember Current place:
-	streampos FileBase = File.tellg();
+	streampos FileBase = File.tellp();
 
 	//Go to Header position:
 	File.seekg(Hdr.FileBase.Word);	
+	File.seekp(Hdr.FileBase.Word);	
 	//Read-modify-write Header;
 	File.read(reinterpret_cast<char *>(&Hdr), sizeof(BfSection_t));
 	swapLEtoBE((WordToBigEndian_t *)&Hdr, sizeof(BfSection_t));
@@ -90,10 +91,10 @@ void Section::WriteData(std::fstream &File){
 	File.write(reinterpret_cast<char *>(&Hdr), sizeof(BfSection_t));
 
 	//return to data:
-	File.seekg(FileBase);
+	File.seekp(FileBase);
 	if (Hdr.FileSize.Word != 0){
 		swapLEtoBE((WordToBigEndian_t*)Data, sizeof(Hdr.FileSize.Word));
-		File.write(reinterpret_cast<char *>(Data), sizeof(Hdr.FileSize.Word));
+		File.write(reinterpret_cast<char *>(Data), Hdr.FileSize.Word);
 	}
 }
 
