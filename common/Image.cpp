@@ -3,10 +3,26 @@
 
 using namespace std;
 
-Section::Section(vector<uint16_t> &SectionData, WordToBigEndian_t &MemoryBase, WordToBigEndian_t &MemorySize){
+Section::Section(vector<Cmd> &SectionCmd, uint16_t MemoryBase, uint16_t MemorySize){
 
-	Hdr.MemoryBase.Word = MemoryBase.Word;
-	Hdr.MemorySize.Word = MemorySize.Word;
+	Hdr.MemoryBase.Word = MemoryBase;
+	Hdr.MemorySize.Word = MemorySize;
+
+	Hdr.FileSize.Word = SectionCmd.size() * sizeof(uint16_t);
+
+
+	if (Hdr.FileSize.Word != 0){
+		Data = new uint16_t[Hdr.FileSize.Word];
+		size_t pos = 0;
+		for (auto iter = SectionCmd.begin(); iter < SectionCmd.end(); ++iter){
+			Data[pos] = iter->GetCmd();	
+		}
+	}
+}
+Section::Section(vector<uint16_t> &SectionData, uint16_t MemoryBase, uint16_t MemorySize){
+
+	Hdr.MemoryBase.Word = MemoryBase;
+	Hdr.MemorySize.Word = MemorySize;
 
 	Hdr.FileSize.Word = SectionData.size() * sizeof(uint16_t);
 
@@ -109,6 +125,40 @@ Image::Image(std::fstream &File, uint16_t *MemoryPtr){
 	
 }
 
+//This constructor is used by compiler:
+Image::Image(uint8_t _Machine){
+	Hdr.Magic.Word = BF_MAGIC;
+	Hdr.Machine = _Machine;
+	Hdr.HeaderSize = sizeof(BfHeader_t);
+	Hdr.SectionNum = 0;
+	Hdr.flags = 0;
+	Hdr.IpEntry.Word = 0;
+	Hdr.ApEntry.Word = 0;
+}
+
+void Image::AddSection(Section &section){
+
+	Sections.push_back(section);
+
+}
+
 Image::~Image(){
+}
+
+
+void Image::Write(std::fstream &File){
+
+
+	swapLEtoBE(&Hdr.Magic);
+	swapLEtoBE(&Hdr.IpEntry);
+	swapLEtoBE(&Hdr.ApEntry);
+	File.write(reinterpret_cast<char *>(&Hdr), sizeof(BfHeader_t));
+
+	for (auto section = Sections.begin(); section < Sections.end(); ++section){
+		section->WriteHeader(File);
+	}
+	for (auto section = Sections.begin(); section < Sections.end(); ++section){
+		section->WriteData(File);
+	}
 }
 

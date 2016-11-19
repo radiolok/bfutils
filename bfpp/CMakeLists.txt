@@ -17,7 +17,7 @@ add_library(cmd ${COMMON_LIB}/cmd.cpp)
 
 add_library(bfutils ${COMMON_LIB}/bfutils.cpp)
 
-add_library(image ${COMMON_LIB}/Image.cpp)
+add_library(image ${COMMON_LIB}/Image.cpp ${COMMON_LIB}/bfutils.cpp) 
 
 add_library(bf Bf.cpp)
 

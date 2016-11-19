@@ -6,12 +6,15 @@
 #include <fstream>
 #include <iostream>
 #include "bfutils.h"
+#include "cmd.h"
+
 
 class Section{
 
 	public:
+		Section(std::vector<Cmd> &SectionCmd, uint16_t MemoryBase, uint16_t MemorySize);
 		Section(std::vector<uint16_t> &SectionData, 
-				WordToBigEndian_t &MemoryBase, WordToBigEndian_t &MemorySize);
+				uint16_t MemoryBase, uint16_t MemorySize);
 
 		Section(std::fstream &File, uint16_t *MemoryPtr);
 		~Section();
@@ -40,7 +43,23 @@ class Image{
 
 	public:
 		Image(std::fstream &File, uint16_t *MemoryPtr);
+		Image(uint8_t _machine);
+
 		~Image();
+
+		void AddSection(Section &section);
+		uint8_t GetSectionNum(void){return Hdr.SectionNum;};
+		Section &GetSection(uint8_t section){return Sections[section];};
+
+		void SetIpEntry(ADDRESS_TYPE Ptr){Hdr.IpEntry.Word = Ptr;};
+		void SetApEntry(ADDRESS_TYPE Ptr){Hdr.ApEntry.Word = Ptr;};
+
+		ADDRESS_TYPE GetIpEntry(){return Hdr.IpEntry.Word;};
+			
+		ADDRESS_TYPE GetApEntry(){return Hdr.ApEntry.Word;};
+		
+		void Write(std::fstream &File);
+
 
 		bool Error(){return err;};
 	private:

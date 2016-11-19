@@ -31,9 +31,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include <linux/limits.h>
 #include "Bf.h"
 #include "bfutils.h"
+#include <Image.h>
 #include <iomanip>
 #include <sstream>
-
 
 using namespace std;
 
@@ -94,46 +94,11 @@ string GetDebugSymbol(Cmd cmd){
 	return result.str();
 }
 
-uint8_t GetHeader(std::vector<Cmd> &Output, std::vector<WordToBigEndian_t> &Data, BfHeader_t &Header){
-	uint8_t status = SUCCESS;
-	Header.Magic.Word = BF_MAGIC;
-	Header.Machine.Word = 0;
-
-	Header.Code.Base.Word = 0;
-	Header.Code.Length.Word = Output.size();
-	Header.Code.Position.Word = 0;
-	Header.Code.Flags.Word = 0;
-
-	Header.Data.Base.Word = Header.Code.Base.Word + Header.Code.Length.Word + BF_INDENT;
-	Header.Data.Length.Word = Data.size();
-	Header.Data.Position.Word = Header.Code.Base.Word + Header.Code.Length.Word + BF_INDENT;
-	Header.Data.Flags.Word = 0;
-
-	return status;
-}
-
-uint8_t WriteHeader(std::ofstream &File, BfHeader_t &BfHeader){
-	uint8_t status = SUCCESS;
-	File << BfHeader.Magic.Byte.high << BfHeader.Magic.Byte.low;
-	File << BfHeader.Machine.Byte.high << BfHeader.Machine.Byte.low;
-	
-	File << BfHeader.Code.Base.Byte.high << BfHeader.Code.Base.Byte.low;
-	File << BfHeader.Code.Length.Byte.high << BfHeader.Code.Length.Byte.low;
-	File << BfHeader.Code.Position.Byte.high << BfHeader.Code.Position.Byte.low;
-	File << BfHeader.Code.Flags.Byte.high << BfHeader.Code.Flags.Byte.low;
-	
-	File << BfHeader.Data.Base.Byte.high << BfHeader.Data.Base.Byte.low;
-	File << BfHeader.Data.Length.Byte.high << BfHeader.Data.Length.Byte.low;
-	File << BfHeader.Data.Position.Byte.high << BfHeader.Data.Position.Byte.low;
-	File << BfHeader.Data.Flags.Byte.high << BfHeader.Data.Flags.Byte.low;
-	
-	return status;
-}
 
 uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path, bool DebugSymbols){
 	uint8_t status = 0;
 	if (binaryastext){
-		std::ofstream OutputFile (path, std::ofstream::out);
+		std::fstream OutputFile (path, std::fstream::out);
 		if (!OutputFile.good()){
 			cerr << "Output File open error, exiting\r\n";
 			return OPEN_OUTPUT_ERROR;
@@ -153,30 +118,38 @@ uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path
 
 	}
 	else{
-		std::ofstream OutputFile (path, std::ofstream::binary);
+		std::fstream OutputFile (path, std::fstream::binary);
 		if (!OutputFile.good()){
 			cerr << "Output File open error, exiting\r\n";
 			return OPEN_OUTPUT_ERROR;
 		}
 		else{
-			vector<WordToBigEndian_t> Data;
-			BfHeader_t BfHeader;
+			
+			Image *image = new Image(static_cast<uint8_t>(DataType::ByteData));
 
-			GetHeader(Output, Data, BfHeader);
+			//Add code Section:
+			//Default placement is IP = 0:
+			Section codesection(Output, 0, Output.size());
+			image->AddSection(codesection);
+			//image->AddSection(Section(Output, 0, Output.size()));
+			
+			//Add Data section.
+			//By default it has no static elements
+			//Default placement is after code segment:
+			//Default length = all free memory
+			//Default AP - is the middle of limits
+			vector<uint16_t> Data;
 
-			WriteHeader(OutputFile, BfHeader);
+			Section datasection(Data, Output.size(), MEMORY_PTR_MAX - Output.size());
+			image->AddSection(datasection);
+			//image->AddSection(Section(Data, Output.size(), MEMORY_PTR_MAX - Output.size()));
+					
+			image->SetIpEntry(0);
+			image->SetApEntry(MEMORY_PTR_MAX/2 - Output.size()/2);
 
-			uint16_t *buffer = new uint16_t [Output.size()];
-			//copy data:
-			WordToBigEndian_t cmd;
-			for (auto iter = Output.begin(); iter < Output.end(); ++iter, ++buffer){
-				//*buffer = iter->GetCmd();
-				cmd.Word = iter->GetCmd();
-				OutputFile.write(reinterpret_cast<const char *>(&cmd.Byte.high), sizeof(cmd.Byte.high));
-				OutputFile.write(reinterpret_cast<const char *>(&cmd.Byte.low), sizeof(cmd.Byte.low));
-			}
+			image->Write(OutputFile);
+
 			//Save:
-//			OutputFile.write((char*)buffer, sizeof(uint16_t)*Output.size());
 			OutputFile.close();
 		}
 

@@ -18,6 +18,8 @@
 #define BF_MAGIC 0x4246
 #define BF_INDENT 0x10
 
+#define MEMORY_PTR_MAX 65535
+
 #include <cstdint>
 #include <cstddef>
 
