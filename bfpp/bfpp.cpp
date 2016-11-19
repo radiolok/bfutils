@@ -118,7 +118,7 @@ uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path
 
 	}
 	else{
-		std::fstream OutputFile (path, std::fstream::binary);
+		std::fstream OutputFile (path, std::fstream::out | std::fstream::binary);
 		if (!OutputFile.good()){
 			cerr << "Output File open error, exiting\r\n";
 			return OPEN_OUTPUT_ERROR;

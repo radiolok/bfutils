@@ -139,7 +139,7 @@ Image::Image(uint8_t _Machine){
 void Image::AddSection(Section &section){
 
 	Sections.push_back(section);
-
+	Hdr.SectionNum = Sections.size();
 }
 
 Image::~Image(){
