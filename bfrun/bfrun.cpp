@@ -147,8 +147,9 @@ int main(int argc, char *argv[]) {
 	}
 	uint16_t Memory[65536];
 	memset(&Memory,0,sizeof(Memory));
-	std::fstream File(filePath, std::fstream::binary);
+	std::fstream File(filePath, std::fstream::in | std::fstream::binary);
 	if (!File.good()){
+		cerr << "Input file error, exiting"<<endl;
 		return -1;
 	}
 
