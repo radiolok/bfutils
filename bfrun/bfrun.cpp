@@ -45,16 +45,6 @@ bool GetWordMode(void){
      return WordModeEnabled;
 }
 
-void swapLEtoBE(WordToBigEndian_t *array, size_t size){
-
-	uint8_t  tmp = 0;
-	for (size_t i = 0; i < size/sizeof(uint16_t); ++i){
-		tmp = array[i].Byte.low;
-		array[i].Byte.low = array[i].Byte.high;
-		array[i].Byte.high = tmp;
-	}
-
-}
 
 uint8_t  LoadImage(std::ifstream &File, BfHeader_t *Header, uint16_t *MemoryPtr){
 	uint8_t status = 0;

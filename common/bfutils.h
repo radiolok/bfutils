@@ -18,6 +18,14 @@
 #define BF_MAGIC 0x4246
 #define BF_INDENT 0x10
 
+#include <cstdint>
+#include <cstddef>
+
+enum class DataType { ByteData = 0, WordData = 1 };
+
+typedef  uint8_t BF_STATUS;  
+typedef  uint16_t  ADDRESS_TYPE;
+
 typedef union  _WordToBigEndian_t{
 	uint16_t Word;
 	struct {
@@ -27,17 +35,25 @@ typedef union  _WordToBigEndian_t{
 }WordToBigEndian_t;
 
 typedef struct _BfSection_t{
-	WordToBigEndian_t Base;
-	WordToBigEndian_t Length;
-	WordToBigEndian_t Position;
-	WordToBigEndian_t Flags;
+	WordToBigEndian_t FileBase;//Relative shift from the beginning of file
+	WordToBigEndian_t MemoryBase;//Physical address to load
+	WordToBigEndian_t FileSize;//How much Bytes of data can be loaded to memory
+	WordToBigEndian_t MemorySize;//How much Words in Memory should be allocated
 }BfSection_t;
 
 typedef struct _BfHeader_t{
-	WordToBigEndian_t Magic;
-	WordToBigEndian_t Machine;
-	BfSection_t Code;
-	BfSection_t Data;
+	WordToBigEndian_t Magic;//BF should contain "BF" symbols
+	uint8_t Machine;//8bit of 16bit mode
+	uint8_t HeaderSize;
+	uint8_t SectionNum;
+	uint8_t flags;
+	WordToBigEndian_t IpEntry;//IP start address
+	WordToBigEndian_t ApEntry;//AP start address 
 } BfHeader_t;
+
+
+
+void swapLEtoBE(WordToBigEndian_t *array, size_t size);
+void swapLEtoBE(WordToBigEndian_t *word);
 
 #endif /* DF_DEFINITIONS_H_ */
