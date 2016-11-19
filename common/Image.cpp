@@ -14,7 +14,7 @@ Section::Section(vector<Cmd> &SectionCmd, uint16_t MemoryBase, uint16_t MemorySi
 	if (Hdr.FileSize.Word != 0){
 		Data = new uint16_t[Hdr.FileSize.Word];
 		size_t pos = 0;
-		for (auto iter = SectionCmd.begin(); iter < SectionCmd.end(); ++iter){
+		for (auto iter = SectionCmd.begin(); iter < SectionCmd.end(); ++iter, ++pos){
 			Data[pos] = iter->GetCmd();	
 		}
 	}
@@ -64,12 +64,12 @@ Section::~Section(){
 
 void Section::WriteHeader(std::fstream &File){
 	//Remember Section Header Position:
-	Hdr.FileBase.Word = File.tellg();
+	Hdr.FileBase.Word = File.tellp();
 
 	//Convert LE and BE:
 	swapLEtoBE((WordToBigEndian_t*)&Hdr, sizeof(BfSection_t));
-
 	File.write(reinterpret_cast<char *>(&Hdr), sizeof(BfSection_t));
+	swapLEtoBE((WordToBigEndian_t*)&Hdr, sizeof(BfSection_t));
 
 }
 
@@ -77,24 +77,24 @@ void Section::WriteData(std::fstream &File){
 	
 	//Remember Current place:
 	streampos FileBase = File.tellp();
-
 	//Go to Header position:
 	File.seekg(Hdr.FileBase.Word);	
 	File.seekp(Hdr.FileBase.Word);	
-	//Read-modify-write Header;
-	File.read(reinterpret_cast<char *>(&Hdr), sizeof(BfSection_t));
-	swapLEtoBE((WordToBigEndian_t *)&Hdr, sizeof(BfSection_t));
-
 	Hdr.FileBase.Word = FileBase;
 
 	swapLEtoBE((WordToBigEndian_t*)&Hdr, sizeof(BfSection_t));
 	File.write(reinterpret_cast<char *>(&Hdr), sizeof(BfSection_t));
+	swapLEtoBE((WordToBigEndian_t*)&Hdr, sizeof(BfSection_t));
 
 	//return to data:
 	File.seekp(FileBase);
+	File.seekg(FileBase);
+
+
 	if (Hdr.FileSize.Word != 0){
 		swapLEtoBE((WordToBigEndian_t*)Data, sizeof(Hdr.FileSize.Word));
 		File.write(reinterpret_cast<char *>(Data), Hdr.FileSize.Word);
+		swapLEtoBE((WordToBigEndian_t*)Data, sizeof(Hdr.FileSize.Word));
 	}
 }
 
@@ -154,6 +154,10 @@ void Image::Write(std::fstream &File){
 	swapLEtoBE(&Hdr.IpEntry);
 	swapLEtoBE(&Hdr.ApEntry);
 	File.write(reinterpret_cast<char *>(&Hdr), sizeof(BfHeader_t));
+
+	swapLEtoBE(&Hdr.Magic);
+	swapLEtoBE(&Hdr.IpEntry);
+	swapLEtoBE(&Hdr.ApEntry);
 
 	for (auto section = Sections.begin(); section < Sections.end(); ++section){
 		section->WriteHeader(File);

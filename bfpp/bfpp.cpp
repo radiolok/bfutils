@@ -98,9 +98,9 @@ string GetDebugSymbol(Cmd cmd){
 uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path, bool DebugSymbols){
 	uint8_t status = 0;
 	if (binaryastext){
-		std::fstream OutputFile (path, std::fstream::out| std::fstream::in);
+		std::fstream OutputFile (path, std::fstream::out);
 		if (!OutputFile.good()){
-			cerr << "Output File open error, exiting\r\n";
+			cerr << "Output debug File open error, exiting\r\n";
 			return OPEN_OUTPUT_ERROR;
 		}
 		else{
@@ -118,7 +118,10 @@ uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path
 
 	}
 	else{
-		std::fstream OutputFile (path, std::fstream::out | std::fstream::binary);
+		std::fstream OutputFile;
+		OutputFile.open(path, std::fstream::out | std::fstream::trunc);
+		OutputFile.close();
+		OutputFile.open(path, std::fstream::in | std::fstream::out | std::fstream::binary);
 		if (!OutputFile.good()){
 			cerr << "Output File open error, exiting\r\n";
 			return OPEN_OUTPUT_ERROR;
@@ -169,18 +172,18 @@ int main(int argc, char ** argv) {
 		return -1;
 	}
 	int c = 0;
-	char InputPath[PATH_MAX] = {0x00};
-	char OutputPath[PATH_MAX] = {0x00};
+	char *InputPath = NULL;
+	char *OutputPath = NULL;
 	bool SetCompilerMode = false;
 	bool SaveBinaryAsText = false;
 	bool DebugSymbols = false;
 	while((c = getopt(argc, argv, "i:o:esd")) != -1){
 		switch(c){
 		case 'i':
-			strcpy(InputPath, optarg);
+			InputPath = optarg;
 			break;
 		case 'o':
-			strcpy(OutputPath, optarg);
+			OutputPath = optarg;
 			break;
 		case 'e':
 			SetCompilerMode = true;
