@@ -92,9 +92,9 @@ void Section::WriteData(std::fstream &File){
 
 
 	if (Hdr.FileSize.Word != 0){
-		swapLEtoBE((WordToBigEndian_t*)Data, sizeof(Hdr.FileSize.Word));
+		swapLEtoBE((WordToBigEndian_t*)Data, Hdr.FileSize.Word);
 		File.write(reinterpret_cast<char *>(Data), Hdr.FileSize.Word);
-		swapLEtoBE((WordToBigEndian_t*)Data, sizeof(Hdr.FileSize.Word));
+		swapLEtoBE((WordToBigEndian_t*)Data, Hdr.FileSize.Word);
 	}
 }
 
