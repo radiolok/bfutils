@@ -46,8 +46,7 @@ bool GetWordMode(void){
 }
 
 
-
-uint8_t ExecCmd(Image &image, uint16_t *MemoryPtr, uint16_t &IP, uint16_t &AP){
+uint8_t ExecCmdByteMode(Image &image, uint16_t *MemoryPtr, uint16_t &IP, uint16_t &AP){
 	uint8_t status = SUCCESS;
 	uint16_t cmd = MemoryPtr[IP];
 	uint16_t cmd_bin = ((cmd>>13) & 0x0007);
@@ -61,36 +60,52 @@ uint8_t ExecCmd(Image &image, uint16_t *MemoryPtr, uint16_t &IP, uint16_t &AP){
 		AP = sign? AP - bias: AP + bias;
 		break;
 	case 2://Console input cmd
-		if (GetWordMode()){
-			MemoryPtr[AP] = In();		
-		}
-		else{
 			MemoryPtr[AP] = In() & 0xFF;
-		}
 		break;
 	case 3://console output cmd
-		if (GetWordMode()){
-			Out(MemoryPtr[AP]);
-		}
-		else{
 			Out(MemoryPtr[AP] & 0xFF);
-		}
 		break;
 	case 4://Jump If Zero
-		if (GetWordMode()){
-			IP = MemoryPtr[AP]? IP : (sign? IP - bias: IP + bias);
-		}
-		else{
 			IP = (MemoryPtr[AP] & 0xFF)? IP : (sign? IP - bias: IP + bias);
-		}
 		break;
 	case 5://Jump If not zero
-		if (GetWordMode()){
-			IP = MemoryPtr[AP]? (sign? IP - bias: IP + bias) : IP;
-		}
-		else{
 			IP = (MemoryPtr[AP] & 0xFF)? (sign? IP - bias: IP + bias) : IP;
-		}
+		break;
+	case 6://Set IP
+		IP = bias;
+		break;
+	case 7://Set AP
+		AP =  bias;
+		break;
+	}
+	return status;
+}
+
+
+uint8_t ExecCmdWordMode(Image &image, uint16_t *MemoryPtr, uint16_t &IP, uint16_t &AP){
+	uint8_t status = SUCCESS;
+	uint16_t cmd = MemoryPtr[IP];
+	uint16_t cmd_bin = ((cmd>>13) & 0x0007);
+	bool sign = ((cmd >> 12)&0x01)? true: false;
+	uint16_t bias = (cmd&0x0FFF);
+	switch (cmd_bin){
+	case 0:// '<' and '>' commands
+		MemoryPtr[AP] = sign? MemoryPtr[AP] - bias: MemoryPtr[AP] + bias;
+		break;
+	case 1:// '+' and '-' commands
+		AP = sign? AP - bias: AP + bias;
+		break;
+	case 2://Console input cmd
+			MemoryPtr[AP] = In();		
+		break;
+	case 3://console output cmd
+			Out(MemoryPtr[AP]);
+		break;
+	case 4://Jump If Zero
+			IP = MemoryPtr[AP]? IP : (sign? IP - bias: IP + bias);
+		break;
+	case 5://Jump If not zero
+			IP = MemoryPtr[AP]? (sign? IP - bias: IP + bias) : IP;
 		break;
 	case 6://Set IP
 		IP = bias;
@@ -108,16 +123,34 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 	ADDRESS_TYPE IP = image.GetIpEntry();
 	ADDRESS_TYPE AP = image.GetApEntry();
 
+	ADDRESS_TYPE AP_MAX =  image.GetSection(0).GetMemoryBase().Word + image.GetSection(0).GetMemorySize().Word ;
 	size_t i = 0;
-	do {
-		i++;
-		status = ExecCmd(image,MemoryPtr, IP, AP);
-		if (status){
-			return -1;
-		}
+	if (GetWordMode()){
+	
+		do {
+			i++;
+			status = ExecCmdWordMode(image,MemoryPtr, IP, AP);
+			if (status){
+				return -1;
+			}
 
-		IP++;
-	}while (IP < image.GetSection(0).GetMemoryBase().Word + image.GetSection(0).GetMemorySize().Word );
+			IP++;
+		}while (IP < AP_MAX);
+	
+	}
+	else{
+	
+		do {
+			i++;
+			status = ExecCmdByteMode(image,MemoryPtr, IP, AP);
+			if (status){
+				return -1;
+			}
+
+			IP++;
+		}while (IP < AP_MAX);
+
+	}
 	cerr << "\r\nIstructions_retired:" << i << "\r\n";
 	return status;
 }
