@@ -16,7 +16,7 @@
 
 #include "Console.h"
 
-
+#include "Image.h"
 #include <fstream>
 
 #include <vector>
@@ -46,42 +46,8 @@ bool GetWordMode(void){
 }
 
 
-uint8_t  LoadImage(std::ifstream &File, BfHeader_t *Header, uint16_t *MemoryPtr){
-	uint8_t status = 0;
 
-	File.read(reinterpret_cast<char *>(Header), sizeof(BfHeader_t));
-
-	swapLEtoBE((WordToBigEndian_t*)(Header), sizeof(BfHeader_t));
-
-	File.read(reinterpret_cast<char *>(MemoryPtr+Header->Code.Base.Word), sizeof(uint16_t)*Header->Code.Length.Word);
-	swapLEtoBE((WordToBigEndian_t*)(MemoryPtr+Header->Code.Base.Word),sizeof(uint16_t)*Header->Code.Length.Word);
-	if (Header->Data.Length.Word != 0){
-		File.read(reinterpret_cast<char *>(MemoryPtr+Header->Data.Base.Word), sizeof(uint16_t)*Header->Data.Length.Word);
-		swapLEtoBE((WordToBigEndian_t*)(MemoryPtr+Header->Data.Base.Word), sizeof(uint16_t)*Header->Data.Length.Word);
-	}
-
-	return status;
-}
-
-uint8_t LoadBF(char *fName, BfHeader_t *Header, uint16_t *MemoryPtr){
-	uint8_t status = 0;
-	std::ifstream File(fName, std::ifstream::binary);
-	if (!File.good()){
-		return -1;
-	}
-	LoadImage(File, Header, MemoryPtr);
-	return status;
-}
-
-bool SegFault(const BfSection_t &section, uint16_t Ptr){
-	bool result = false;
-	if ((Ptr < section.Base.Word) ||(Ptr > section.Base.Word + section.Length.Word)){
-		result = true;
-	}
-	return (GetProtectedMode()? result : false);
-}
-
-uint8_t ExecCmd(BfHeader_t *Header, uint16_t *MemoryPtr, uint16_t &IP, uint16_t &AP){
+uint8_t ExecCmd(Image &image, uint16_t *MemoryPtr, uint16_t &IP, uint16_t &AP){
 	uint8_t status = SUCCESS;
 	uint16_t cmd = MemoryPtr[IP];
 	uint16_t cmd_bin = ((cmd>>13) & 0x0007);
@@ -93,9 +59,6 @@ uint8_t ExecCmd(BfHeader_t *Header, uint16_t *MemoryPtr, uint16_t &IP, uint16_t 
 		break;
 	case 1:// '+' and '-' commands
 		AP = sign? AP - bias: AP + bias;
-		if (SegFault(Header->Data, AP)){
-			return -1;
-		}
 		break;
 	case 2://Console input cmd
 		if (GetWordMode()){
@@ -120,9 +83,6 @@ uint8_t ExecCmd(BfHeader_t *Header, uint16_t *MemoryPtr, uint16_t &IP, uint16_t 
 		else{
 			IP = (MemoryPtr[AP] & 0xFF)? IP : (sign? IP - bias: IP + bias);
 		}
-		if (SegFault(Header->Data, IP)){
-			return -2;
-		}
 		break;
 	case 5://Jump If not zero
 		if (GetWordMode()){
@@ -131,41 +91,33 @@ uint8_t ExecCmd(BfHeader_t *Header, uint16_t *MemoryPtr, uint16_t &IP, uint16_t 
 		else{
 			IP = (MemoryPtr[AP] & 0xFF)? (sign? IP - bias: IP + bias) : IP;
 		}
-		if (SegFault(Header->Data, IP)){
-			return -3;
-		}
 		break;
 	case 6://Set IP
 		IP = bias;
-		if (SegFault(Header->Data, IP)){
-			return -4;
-		}
 		break;
 	case 7://Set AP
-		AP = Header->Data.Base.Word + bias;
-		if (SegFault(Header->Data, AP)){
-			return -5;
-		}
+		AP =  bias;
 		break;
 	}
 	return status;
 }
 
-uint8_t ExecCode(BfHeader_t *Header, uint16_t *MemoryPtr){
+uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 	uint8_t status = 0;
 
-	uint16_t IP = Header->Code.Position.Word;
-	uint16_t AP = Header->Data.Position.Word;
+	ADDRESS_TYPE IP = image.GetIpEntry();
+	ADDRESS_TYPE AP = image.GetApEntry();
+
 	size_t i = 0;
 	do {
 		i++;
-		status = ExecCmd(Header,MemoryPtr, IP, AP);
+		status = ExecCmd(image,MemoryPtr, IP, AP);
 		if (status){
 			return -1;
 		}
 
 		IP++;
-	}while (IP < Header->Code.Base.Word + Header->Code.Length.Word);
+	}while (IP < image.GetSection(0).GetMemoryBase().Word + image.GetSection(0).GetMemorySize().Word );
 	cerr << "\r\nIstructions_retired:" << i << "\r\n";
 	return status;
 }
@@ -174,12 +126,12 @@ uint8_t ExecCode(BfHeader_t *Header, uint16_t *MemoryPtr){
 int main(int argc, char *argv[]) {
 	int status = -1;
 	int c = 0;
-	char filePath[4096] = {0x00};
+	char *filePath = NULL;
 	while((c = getopt(argc, argv, "f:px")) != -1){
 		switch(c)
 		{
 		case 'f':
-			strcpy(filePath,optarg);
+			filePath = optarg;
 			break;
 		case 'p':
 			SetProtectedMode(true);
@@ -189,19 +141,23 @@ int main(int argc, char *argv[]) {
 		break;
 		}
 	}
-	if (*filePath == 0){
+	if (filePath == NULL){
 		cout << "Fatal error: add input file"<< endl;
 		return -1;
 	}
-	BfHeader_t *Header = new BfHeader_t;
 	uint16_t Memory[65536];
 	memset(&Memory,0,sizeof(Memory));
-	status = LoadBF(filePath,Header,Memory);
-	if (status){
+	std::fstream File(filePath, std::fstream::binary);
+	if (!File.good()){
+		return -1;
+	}
+
+	Image image(File, Memory);
+	if (image.Error()){
 		cerr << "Load BF buffer Error, Status =" << status << endl;
 		return -1;
 	}
-	status = ExecCode(Header, Memory);
+	status = ExecCode(image, Memory);
 	if (status){
 		cerr << "Code Execution Error, Status =" << status << endl;
 		return -1;

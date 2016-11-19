@@ -17,11 +17,11 @@ add_library(cmd ${COMMON_LIB}/cmd.cpp)
 
 add_library(bfutils ${COMMON_LIB}/bfutils.cpp)
 
-add_library(image ${COMMON_LIB}/Image.cpp ${COMMON_LIB}/bfutils.cpp) 
+add_library(image ${COMMON_LIB}/Image.cpp ${COMMON_LIB}/bfutils.cpp ${COMMON_LIB}/cmd.cpp) 
 
 add_library(bf Bf.cpp)
 
 add_executable(bfpp bfpp.cpp)
 
-target_link_libraries(bfpp bf cmd bfutils image)
+target_link_libraries(bfpp bf cmd  image)
 
