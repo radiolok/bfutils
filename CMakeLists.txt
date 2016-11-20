@@ -3,6 +3,10 @@ cmake_minimum_required(VERSION 3.1)
 cmake_policy(SET CMP0015 NEW)
 project (bfutils)
 
+
+set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_CXX_FLAGS "-O3")        ## Optimize
+
 set (CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/build)
 set (CMAKE_BUILD_FILES_DIRECTORY ${CMAKE_BINARY_DIR})
 set (CMAKE_BUILD_DIRECTORY ${CMAKE_BINARY_DIR})

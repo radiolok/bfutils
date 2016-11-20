@@ -46,35 +46,36 @@ bool GetWordMode(void){
 }
 
 
-uint8_t ExecCmdByteMode(Image &image, uint16_t *MemoryPtr, uint16_t &IP, uint16_t &AP){
+uint8_t ExecCmdByteMode( uint16_t *MemoryPtr, uint16_t &IP, uint16_t &AP){
 	uint8_t status = SUCCESS;
 	uint16_t cmd = MemoryPtr[IP];
-	uint16_t cmd_bin = ((cmd>>13) & 0x0007);
+	uint16_t cmd_bin = cmd  & 0xE000;
+//	uint16_t cmd_bin = ((cmd>>13) & 0x0007);
 	bool sign = ((cmd >> 12)&0x01)? true: false;
 	uint16_t bias = (cmd&0x0FFF);
 	switch (cmd_bin){
-	case 0:// '<' and '>' commands
+	case (0<<13):// '<' and '>' commands
 		MemoryPtr[AP] = sign? MemoryPtr[AP] - bias: MemoryPtr[AP] + bias;
 		break;
-	case 1:// '+' and '-' commands
+	case (1<<13):// '+' and '-' commands
 		AP = sign? AP - bias: AP + bias;
 		break;
-	case 2://Console input cmd
+	case (2<<13)://Console input cmd
 			MemoryPtr[AP] = In() & 0xFF;
 		break;
-	case 3://console output cmd
+	case (3<<13)://console output cmd
 			Out(MemoryPtr[AP] & 0xFF);
 		break;
-	case 4://Jump If Zero
+	case (4<<13)://Jump If Zero
 			IP = (MemoryPtr[AP] & 0xFF)? IP : (sign? IP - bias: IP + bias);
 		break;
-	case 5://Jump If not zero
+	case (5<<13)://Jump If not zero
 			IP = (MemoryPtr[AP] & 0xFF)? (sign? IP - bias: IP + bias) : IP;
 		break;
-	case 6://Set IP
+	case (6<<13)://Set IP
 		IP = bias;
 		break;
-	case 7://Set AP
+	case (7<<13)://Set AP
 		AP =  bias;
 		break;
 	}
@@ -82,7 +83,7 @@ uint8_t ExecCmdByteMode(Image &image, uint16_t *MemoryPtr, uint16_t &IP, uint16_
 }
 
 
-uint8_t ExecCmdWordMode(Image &image, uint16_t *MemoryPtr, uint16_t &IP, uint16_t &AP){
+uint8_t ExecCmdWordMode(uint16_t *MemoryPtr, uint16_t &IP, uint16_t &AP){
 	uint8_t status = SUCCESS;
 	uint16_t cmd = MemoryPtr[IP];
 	uint16_t cmd_bin = ((cmd>>13) & 0x0007);
@@ -128,26 +129,22 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 	if (GetWordMode()){
 	
 		do {
-			i++;
-			status = ExecCmdWordMode(image,MemoryPtr, IP, AP);
-			if (status){
-				return -1;
+			if (ExecCmdWordMode( MemoryPtr, IP, AP)){
+				break;
 			}
-
-			IP++;
+			++i;
+			++IP;
 		}while (IP < AP_MAX);
 	
 	}
 	else{
 	
 		do {
-			i++;
-			status = ExecCmdByteMode(image,MemoryPtr, IP, AP);
-			if (status){
-				return -1;
+			if (ExecCmdByteMode(MemoryPtr, IP, AP)){
+				break;
 			}
-
-			IP++;
+			++i;
+			++IP;
 		}while (IP < AP_MAX);
 
 	}
