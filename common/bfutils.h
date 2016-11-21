@@ -20,6 +20,26 @@
 
 #define MEMORY_PTR_MAX 65535
 
+//Commands list:
+//
+#define CMD_ADD (0x0)
+#define CMD_SUB (0x1)
+
+#define CMD_RIGHT (0x2)
+#define CMD_LEFT (0x03)
+
+#define CMD_INPUT (0x4)
+
+#define CMD_OUTPUT (0x6)
+#define CMD_JZ_UP  (0x8)
+#define CMD_JZ_DOWN (0x9)
+
+#define CMD_JNZ_UP  (0xA)
+#define CMD_JNZ_DOWN (0xB)
+
+#define CMD_IP_SET   (0xC)
+#define CMD_AP_SET (0xE)
+
 #include <cstdint>
 #include <cstddef>
 

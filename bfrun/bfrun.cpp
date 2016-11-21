@@ -46,78 +46,6 @@ bool GetWordMode(void){
 }
 
 
-uint8_t ExecCmdByteMode( uint16_t *MemoryPtr, uint16_t &IP, uint16_t &AP){
-	uint8_t status = SUCCESS;
-	uint16_t cmd = MemoryPtr[IP];
-	uint16_t cmd_bin = cmd  & 0xE000;
-//	uint16_t cmd_bin = ((cmd>>13) & 0x0007);
-	bool sign = ((cmd >> 12)&0x01)? true: false;
-	uint16_t bias = (cmd&0x0FFF);
-	switch (cmd_bin){
-	case (0<<13):// '<' and '>' commands
-		MemoryPtr[AP] = sign? MemoryPtr[AP] - bias: MemoryPtr[AP] + bias;
-		break;
-	case (1<<13):// '+' and '-' commands
-		AP = sign? AP - bias: AP + bias;
-		break;
-	case (2<<13)://Console input cmd
-			MemoryPtr[AP] = In() & 0xFF;
-		break;
-	case (3<<13)://console output cmd
-			Out(MemoryPtr[AP] & 0xFF);
-		break;
-	case (4<<13)://Jump If Zero
-			IP = (MemoryPtr[AP] & 0xFF)? IP : (sign? IP - bias: IP + bias);
-		break;
-	case (5<<13)://Jump If not zero
-			IP = (MemoryPtr[AP] & 0xFF)? (sign? IP - bias: IP + bias) : IP;
-		break;
-	case (6<<13)://Set IP
-		IP = bias;
-		break;
-	case (7<<13)://Set AP
-		AP =  bias;
-		break;
-	}
-	return status;
-}
-
-
-uint8_t ExecCmdWordMode(uint16_t *MemoryPtr, uint16_t &IP, uint16_t &AP){
-	uint8_t status = SUCCESS;
-	uint16_t cmd = MemoryPtr[IP];
-	uint16_t cmd_bin = ((cmd>>13) & 0x0007);
-	bool sign = ((cmd >> 12)&0x01)? true: false;
-	uint16_t bias = (cmd&0x0FFF);
-	switch (cmd_bin){
-	case 0:// '<' and '>' commands
-		MemoryPtr[AP] = sign? MemoryPtr[AP] - bias: MemoryPtr[AP] + bias;
-		break;
-	case 1:// '+' and '-' commands
-		AP = sign? AP - bias: AP + bias;
-		break;
-	case 2://Console input cmd
-			MemoryPtr[AP] = In();		
-		break;
-	case 3://console output cmd
-			Out(MemoryPtr[AP]);
-		break;
-	case 4://Jump If Zero
-			IP = MemoryPtr[AP]? IP : (sign? IP - bias: IP + bias);
-		break;
-	case 5://Jump If not zero
-			IP = MemoryPtr[AP]? (sign? IP - bias: IP + bias) : IP;
-		break;
-	case 6://Set IP
-		IP = bias;
-		break;
-	case 7://Set AP
-		AP =  bias;
-		break;
-	}
-	return status;
-}
-
 uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 	uint8_t status = 0;
 
@@ -126,11 +54,47 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 
 	ADDRESS_TYPE AP_MAX =  image.GetSection(0).GetMemoryBase().Word + image.GetSection(0).GetMemorySize().Word ;
 	size_t i = 0;
-	if (GetWordMode()){
-	
+	if (!GetWordMode()){
+		uint16_t bias = 0;	
 		do {
-			if (ExecCmdWordMode( MemoryPtr, IP, AP)){
-				break;
+			bias = ( MemoryPtr[IP] & 0x0FFF);
+			switch(MemoryPtr[IP] & 0xF000){
+				case (CMD_ADD << 12):
+					MemoryPtr[AP] += bias;
+					break;
+				case (CMD_SUB << 12):
+					MemoryPtr[AP] -= bias;
+					break;
+				case (CMD_RIGHT << 12):
+					AP +=bias;
+					break;
+				case (CMD_LEFT << 12):
+					AP -=bias;
+					break;
+				case (CMD_INPUT << 12):
+				       MemoryPtr[AP] = In() & 0xFF;
+					break;
+				case (CMD_OUTPUT << 12):
+					Out(MemoryPtr[AP] & 0xFF);
+					break;
+				case (CMD_JZ_UP << 12):
+					IP = (MemoryPtr[AP] & 0xFF)? IP : IP + bias;
+					break;
+				case (CMD_JZ_DOWN << 12):	
+					IP = (MemoryPtr[AP] & 0xFF)? IP : IP - bias;
+					break;
+				case (CMD_JNZ_UP << 12):
+					IP = (MemoryPtr[AP] & 0xFF)? IP + bias : IP;
+					break;
+				case (CMD_JNZ_DOWN << 12):	
+					IP = (MemoryPtr[AP] & 0xFF)? IP - bias : IP;
+					break;
+				case (CMD_IP_SET << 12):
+					IP = bias;
+					break;
+				case (CMD_AP_SET << 12):
+					AP = bias;
+					break;
 			}
 			++i;
 			++IP;
@@ -139,9 +103,46 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 	}
 	else{
 	
+		uint16_t bias = 0;	
 		do {
-			if (ExecCmdByteMode(MemoryPtr, IP, AP)){
-				break;
+			bias = ( MemoryPtr[IP] & 0x0FFF);
+			switch(MemoryPtr[IP] & 0xF000){
+				case (CMD_ADD << 12):
+					MemoryPtr[AP] += bias;
+					break;
+				case (CMD_SUB << 12):
+					MemoryPtr[AP] -= bias;
+					break;
+				case (CMD_RIGHT << 12):
+					AP +=bias;
+					break;
+				case (CMD_LEFT << 12):
+					AP -=bias;
+					break;
+				case (CMD_INPUT << 12):
+				       MemoryPtr[AP] = In() & 0xFFFF;
+					break;
+				case (CMD_OUTPUT << 12):
+					Out(MemoryPtr[AP] & 0xFFFF);
+					break;
+				case (CMD_JZ_UP << 12):
+					IP = (MemoryPtr[AP] & 0xFFFF)? IP : IP + bias;
+					break;
+				case (CMD_JZ_DOWN << 12):	
+					IP = (MemoryPtr[AP] & 0xFFFF)? IP : IP - bias;
+					break;
+				case (CMD_JNZ_UP << 12):
+					IP = (MemoryPtr[AP] & 0xFFFF)? IP + bias : IP;
+					break;
+				case (CMD_JNZ_DOWN << 12):	
+					IP = (MemoryPtr[AP] & 0xFFFF)? IP - bias : IP;
+					break;
+				case (CMD_IP_SET << 12):
+					IP = bias;
+					break;
+				case (CMD_AP_SET << 12):
+					AP = bias;
+					break;
 			}
 			++i;
 			++IP;
