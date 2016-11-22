@@ -20,7 +20,20 @@
 
 #define MEMORY_PTR_MAX 65535
 
+#define SECTION_CODE 0x01
+#define SECTION_DATA 0x02
+
+
+#define CORE_CMD_ADD_SUB 0x00
+#define CORE_CMD_RIGHT_LEFT 0x01
+#define CORE_CMD_INPUT 0x02
+#define CORE_CMD_OUTPUT 0x03
+#define CORE_CMD_JZ_UP_DOWN 0x04
+#define CORE_CMD_JNZ_UP_DOWN 0x05
+
+
 //Commands list:
+//
 //
 #define CMD_ADD (0x0)
 #define CMD_SUB (0x1)
@@ -61,6 +74,8 @@ typedef struct _BfSection_t{
 	WordToBigEndian_t MemoryBase;//Physical address to load
 	WordToBigEndian_t FileSize;//How much Bytes of data can be loaded to memory
 	WordToBigEndian_t MemorySize;//How much Words in Memory should be allocated
+	uint8_t type;
+	uint8_t pad;
 }BfSection_t;
 
 typedef struct _BfHeader_t{

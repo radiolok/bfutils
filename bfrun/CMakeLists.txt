@@ -13,6 +13,8 @@ set(COMMON_LIB ${PROJECT_SOURCE_DIR}/../common)
 
 include_directories(${COMMON_LIB})
 
+add_library(command_t ${COMMON_LIB}/Command.cpp)
+
 add_library(Console ${COMMON_LIB}/Console.cpp)
 
 #add_library(bfutils ${COMMON_LIB}/bfutils.cpp)
@@ -20,5 +22,5 @@ add_library(Console ${COMMON_LIB}/Console.cpp)
 
 add_executable(bfrun bfrun.cpp)
 
-target_link_libraries(bfrun Console image)
+target_link_libraries(bfrun Console image command_t)
 

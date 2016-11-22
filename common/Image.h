@@ -16,9 +16,10 @@ class Section{
 		Section(std::vector<uint16_t> &SectionData, 
 				uint16_t MemoryBase, uint16_t MemorySize);
 
-		Section(std::fstream &File, uint16_t *MemoryPtr);
+		Section(std::fstream &File);
 		~Section();
-		
+	
+		uint8_t GetType(){return Hdr.type;};	
 		WordToBigEndian_t GetFileBase(){return Hdr.FileBase;};
 		WordToBigEndian_t GetMemoryBase(){return Hdr.MemoryBase;};
 		WordToBigEndian_t GetFileSize(){return Hdr.FileSize;};
@@ -42,7 +43,7 @@ class Section{
 class Image{
 
 	public:
-		Image(std::fstream &File, uint16_t *MemoryPtr);
+		Image(std::fstream &File);
 		Image(uint8_t _machine);
 
 		~Image();

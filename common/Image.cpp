@@ -3,6 +3,9 @@
 
 using namespace std;
 
+
+
+//add code section
 Section::Section(vector<Cmd> &SectionCmd, uint16_t MemoryBase, uint16_t MemorySize){
 
 	Hdr.MemoryBase.Word = MemoryBase;
@@ -10,6 +13,7 @@ Section::Section(vector<Cmd> &SectionCmd, uint16_t MemoryBase, uint16_t MemorySi
 
 	Hdr.FileSize.Word = SectionCmd.size() * sizeof(uint16_t);
 
+	Hdr.type = SECTION_CODE;
 
 	if (Hdr.FileSize.Word != 0){
 		Data = new uint16_t[Hdr.FileSize.Word];
@@ -19,6 +23,9 @@ Section::Section(vector<Cmd> &SectionCmd, uint16_t MemoryBase, uint16_t MemorySi
 		}
 	}
 }
+
+
+//Add data section
 Section::Section(vector<uint16_t> &SectionData, uint16_t MemoryBase, uint16_t MemorySize){
 
 	Hdr.MemoryBase.Word = MemoryBase;
@@ -26,6 +33,7 @@ Section::Section(vector<uint16_t> &SectionData, uint16_t MemoryBase, uint16_t Me
 
 	Hdr.FileSize.Word = SectionData.size() * sizeof(uint16_t);
 
+	Hdr.type = SECTION_DATA;
 
 	if (Hdr.FileSize.Word != 0){
 		Data = new uint16_t[Hdr.FileSize.Word];
@@ -36,7 +44,9 @@ Section::Section(vector<uint16_t> &SectionData, uint16_t MemoryBase, uint16_t Me
 	}
 }
 
-Section::Section(std::fstream &File, uint16_t *MemoryPtr){
+
+//Load Section from file
+Section::Section(std::fstream &File){
 
 	err = false;	
 	//Read Section Image	
@@ -46,7 +56,7 @@ Section::Section(std::fstream &File, uint16_t *MemoryPtr){
 	//Remember position after Section header reading
 	streampos Image_pos = File.tellg();
 
-	Data = MemoryPtr + Hdr.MemoryBase.Word;
+	Data = new uint16_t [GetMemorySize().Word];
 	//if current section size is not NULL, read data:	
 	if (GetFileSize().Word != 0){
 	
@@ -99,7 +109,7 @@ void Section::WriteData(std::fstream &File){
 }
 
 //This constructor will read image and load sections into their places
-Image::Image(std::fstream &File, uint16_t *MemoryPtr){
+Image::Image(std::fstream &File){
 
 	err = false;
 	//Read BF header:
@@ -118,7 +128,7 @@ Image::Image(std::fstream &File, uint16_t *MemoryPtr){
 	
 	for (uint8_t section = 0; section < Hdr.SectionNum; ++section){
 	
-		Sections.push_back(Section(File, MemoryPtr));
+		Sections.push_back(Section(File));
 		if (Sections.back().Error()){
 			std::cerr << "Section " << section << "Read error!\r\n";
 		}	
@@ -153,6 +163,7 @@ void Image::Write(std::fstream &File){
 	swapLEtoBE(&Hdr.Magic);
 	swapLEtoBE(&Hdr.IpEntry);
 	swapLEtoBE(&Hdr.ApEntry);
+	Hdr.HeaderSize += sizeof(BfHeader_t) * Hdr.SectionNum;
 	File.write(reinterpret_cast<char *>(&Hdr), sizeof(BfHeader_t));
 
 	swapLEtoBE(&Hdr.Magic);

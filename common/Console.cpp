@@ -23,14 +23,7 @@ size_t GetCharLength(uint8_t *str)
 }
 
 void Out(uint16_t val){
-	if (val < 0x20)
-	{
-		fprintf(stderr, "(%02x)", val);
-	}
-	else{
 		fprintf(stderr, "%c", val);
-	}
-
 }
 
 
