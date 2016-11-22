@@ -23,6 +23,8 @@
 
 #include "bfutils.h"
 
+#include "Command.h"
+
 using namespace std;
 
 bool ProtectedModeEnabled = false;
@@ -184,7 +186,10 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
-	Image image(File, Memory);
+	Image image(File);
+
+	LoadShared(image, Memory);
+
 	if (image.Error()){
 		cerr << "Load BF buffer Error, Status =" << status << endl;
 		return -1;
