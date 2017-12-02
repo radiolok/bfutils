@@ -33,9 +33,9 @@ void LoadShared(Image &image, uint16_t *data){
 	//Let;s find all code segments:
 	for (uint8_t section = 0; section < image.GetSectionNum(); ++section){
 		Section CurrentSection = image.GetSection(section);
-		 for (uint16_t mem = CurrentSection.GetMemoryBase().Word;
-				 mem < CurrentSection.GetMemoryBase().Word + 
-				 CurrentSection.GetMemorySize().Word; ++mem)
+		 for (uint16_t mem = CurrentSection.GetMemoryBase();
+				 mem < CurrentSection.GetMemoryBase() + 
+				 CurrentSection.GetMemorySize(); ++mem)
 		 	{
 				data[mem] = CurrentSection.GetData()[mem];
 			}
@@ -54,9 +54,9 @@ void LoadCode(Image &image, Command_t *cmd){
 	for (uint8_t section = 0; section < image.GetSectionNum(); ++section){
 		Section CurrentSection = image.GetSection(section);
 		if (CurrentSection.GetType() == SECTION_CODE){
-		 for (uint16_t mem = CurrentSection.GetMemoryBase().Word;
-				 mem < CurrentSection.GetMemoryBase().Word + 
-				 CurrentSection.GetMemorySize().Word; ++mem)
+		 for (uint16_t mem = CurrentSection.GetMemoryBase();
+				 mem < CurrentSection.GetMemoryBase() + 
+				 CurrentSection.GetMemorySize(); ++mem)
 		 	{
 				uint16_t command = CurrentSection.GetData()[mem];
 				cmd[mem].cmd = (command >> 13) & 0x07;
@@ -77,9 +77,9 @@ void LoadData(Image &image, unsigned int *data){
 	for (uint8_t section = 0; section < image.GetSectionNum(); ++section){
 		Section CurrentSection = image.GetSection(section);
 		if (CurrentSection.GetType() == SECTION_DATA){
-		 for (uint16_t mem = CurrentSection.GetMemoryBase().Word;
-				 mem < CurrentSection.GetMemoryBase().Word + 
-				 CurrentSection.GetMemorySize().Word; ++mem)
+		 for (uint16_t mem = CurrentSection.GetMemoryBase();
+				 mem < CurrentSection.GetMemoryBase() + 
+				 CurrentSection.GetMemorySize(); ++mem)
 		 	{
 				data[mem] = CurrentSection.GetData()[mem];
 			}

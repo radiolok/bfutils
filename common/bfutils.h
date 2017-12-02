@@ -87,27 +87,27 @@ typedef union  _WordToBigEndian_t{
 }WordToBigEndian_t;
 
 typedef struct _BfSection_t{
-	WordToBigEndian_t FileBase;//Relative shift from the beginning of file
-	WordToBigEndian_t MemoryBase;//Physical address to load
-	WordToBigEndian_t FileSize;//How much Bytes of data can be loaded to memory
-	WordToBigEndian_t MemorySize;//How much Words in Memory should be allocated
+	uint16_t FileBase;//Relative shift from the beginning of file
+	uint16_t MemoryBase;//Physical address to load
+	uint16_t FileSize;//How much Bytes of data can be loaded to memory
+	uint16_t MemorySize;//How much Words in Memory should be allocated
 	uint8_t type;
 	uint8_t pad;
 }BfSection_t;
 
 typedef struct _BfHeader_t{
-	WordToBigEndian_t Magic;//BF should contain "BF" symbols
+	uint16_t Magic;//BF should contain "BF" symbols
 	uint8_t Machine;//8bit of 16bit mode
 	uint8_t HeaderSize;
 	uint8_t SectionNum;
 	uint8_t flags;
-	WordToBigEndian_t IpEntry;//IP start address
-	WordToBigEndian_t ApEntry;//AP start address 
+	uint16_t IpEntry;//IP start address
+	uint16_t ApEntry;//AP start address 
 } BfHeader_t;
 
 
 
-void swapLEtoBE(WordToBigEndian_t *array, size_t size);
-void swapLEtoBE(WordToBigEndian_t *word);
+void swapLEtoBE(void *array, size_t size);
+void swapLEtoBE(void *word);
 
 #endif /* DF_DEFINITIONS_H_ */

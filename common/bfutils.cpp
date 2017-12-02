@@ -26,22 +26,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
 
 
-void swapLEtoBE(WordToBigEndian_t *word){
+void swapLEtoBE(void *word){
 
-	uint8_t  tmp = 0;
-	tmp = word->Byte.low;
-	word->Byte.low = word->Byte.high;
-	word->Byte.high = tmp;
+	WordToBigEndian_t *data = static_cast<WordToBigEndian_t *>(word);
+	uint8_t  tmp =  data->Byte.low;
+	data->Byte.low = data->Byte.high;
+	data->Byte.high = tmp;
 
 }
 
-void swapLEtoBE(WordToBigEndian_t *array, size_t size){
+void swapLEtoBE(void *array, size_t size){
 
-	uint8_t  tmp = 0;
-	for (size_t i = 0; i < size/sizeof(uint16_t); ++i){
-		tmp = array[i].Byte.low;
-		array[i].Byte.low = array[i].Byte.high;
-		array[i].Byte.high = tmp;
+	for (size_t i = 0; i < size/sizeof(WordToBigEndian_t); ++i){
+		WordToBigEndian_t *data = static_cast<WordToBigEndian_t *>(array) + i;
+		uint8_t  tmp =  data->Byte.low;
+		data->Byte.low = data->Byte.high;
+		data->Byte.high = tmp;
 	}
 
 }

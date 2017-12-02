@@ -70,7 +70,7 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 	ADDRESS_TYPE IP = image.GetIpEntry();
 	ADDRESS_TYPE AP = image.GetApEntry();
 
-	ADDRESS_TYPE AP_MAX =  image.GetSection(0).GetMemoryBase().Word + image.GetSection(0).GetMemorySize().Word ;
+	ADDRESS_TYPE AP_MAX =  image.GetSection(0).GetMemoryBase() + image.GetSection(0).GetMemorySize() ;
 	size_t i = 0;
 	if (!GetWordMode()){
 		uint16_t bias = 0;	

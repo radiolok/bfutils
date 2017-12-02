@@ -44,10 +44,10 @@ class Section{
 		~Section();
 	
 		uint8_t GetType(){return Hdr.type;};	
-		WordToBigEndian_t GetFileBase(){return Hdr.FileBase;};
-		WordToBigEndian_t GetMemoryBase(){return Hdr.MemoryBase;};
-		WordToBigEndian_t GetFileSize(){return Hdr.FileSize;};
-		WordToBigEndian_t GetMemorySize(){return Hdr.MemorySize;};
+		uint16_t GetFileBase(){return Hdr.FileBase;};
+		uint16_t GetMemoryBase(){return Hdr.MemoryBase;};
+		uint16_t GetFileSize(){return Hdr.FileSize;};
+		uint16_t GetMemorySize(){return Hdr.MemorySize;};
 
 		void WriteHeader(std::fstream &File);
 		void WriteData(std::fstream &File);
@@ -76,12 +76,12 @@ class Image{
 		uint8_t GetSectionNum(void){return Hdr.SectionNum;};
 		Section &GetSection(uint8_t section){return Sections[section];};
 
-		void SetIpEntry(ADDRESS_TYPE Ptr){Hdr.IpEntry.Word = Ptr;};
-		void SetApEntry(ADDRESS_TYPE Ptr){Hdr.ApEntry.Word = Ptr;};
+		void SetIpEntry(ADDRESS_TYPE Ptr){Hdr.IpEntry = Ptr;};
+		void SetApEntry(ADDRESS_TYPE Ptr){Hdr.ApEntry = Ptr;};
 
-		ADDRESS_TYPE GetIpEntry(){return Hdr.IpEntry.Word;};
+		ADDRESS_TYPE GetIpEntry(){return Hdr.IpEntry;};
 			
-		ADDRESS_TYPE GetApEntry(){return Hdr.ApEntry.Word;};
+		ADDRESS_TYPE GetApEntry(){return Hdr.ApEntry;};
 		
 		void Write(std::fstream &File);
 
