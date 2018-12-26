@@ -75,7 +75,7 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 	if (!GetWordMode()){
 		uint16_t bias = 0;	
 		do {
-			bias = ( MemoryPtr[IP] & 0x0FFF);
+			bias = ( MemoryPtr[IP] & 0x1FFF);
 			if (MemoryPtr[IP]  & (1<<12))
 			{
 				bias |= 0xF000;

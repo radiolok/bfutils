@@ -90,16 +90,16 @@ string GetDebugSymbol(Cmd cmd, bool loopShift = false){
 
 	switch (cmd.GetCmdChar()){
 	case '>':
-		result << "AP += " << cmd.GetBias();
+		result << "AP += " <<abs(cmd.GetBias());
 		break;
 	case '<':
-		result << "AP -= " << cmd.GetBias();
+		result << "AP -= " << abs(cmd.GetBias());
 		break;
 	case '+':
-		result << "*AP += " << cmd.GetBias();
+		result << "*AP += " << abs(cmd.GetBias());
 		break;
 	case '-':
-		result << "*AP -= " << cmd.GetBias();
+		result << "*AP -= " << abs(cmd.GetBias());
 		break;
 	case '.':
 		result << "putc";
