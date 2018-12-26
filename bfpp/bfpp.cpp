@@ -26,7 +26,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include <fstream>
 #include <vector>
 #include "cmd.h"
-#include <getopt.h>
+
 #include <string.h>
 #include <linux/limits.h>
 #include "Bf.h"
@@ -34,6 +34,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include <Image.h>
 #include <iomanip>
 #include <sstream>
+//#if defined (__linux__)
+	//#include <getopt.h>
+//#else
+	#include <getopts.hpp>
+//#endif
 
 using namespace std;
 
@@ -64,28 +69,28 @@ string GetDebugSymbol(Cmd cmd){
 	std::stringstream result;
 	switch (cmd.GetCmdChar()){
 	case '>':
-		result << "\tPTR(" << cmd.GetBias() << ")";
+		result << "\tAP += " << cmd.GetBias();
 		break;
 	case '<':
-		result << "\tPTR(-" << cmd.GetBias() << ")";
+		result << "\tAP -= " << cmd.GetBias();
 		break;
 	case '+':
-		result << "\tADD(" << cmd.GetBias() << ")";
+		result << "\t*AP += " << cmd.GetBias();
 		break;
 	case '-':
-		result << "\tADD(-" << cmd.GetBias() << ")";
+		result << "\t*AP -= " << cmd.GetBias();
 		break;
 	case '.':
-		result << "\tPRINT";
+		result << "\tputc";
 		break;
 	case ',':
-		result << "\tGET";
+		result << "\tgetc";
 		break;
 	case '[':
-		result << "\tJZ(" << cmd.GetBias() << ")";
+		result << "\t(*AP==0)? IP " << ((cmd.GetBias()>0)? "+= " : "-= ") << abs(cmd.GetBias()) << ": PASS";
 		break;
 	case ']':
-		result << "\tJNZ(" << cmd.GetBias() << ")";
+		result << "\t(*AP!=0)? IP " << ((cmd.GetBias()>0)? "+= " : "-= ")  << abs(cmd.GetBias()) << ": PASS";
 		break;
 	default:
 
@@ -197,7 +202,7 @@ int main(int argc, char ** argv) {
 
 		}
 	}
-	if (InputPath[0]){
+	if (InputPath){
 		std::ifstream SourceFile (InputPath, std::ifstream::binary);
 
 		if (!SourceFile.good()){
@@ -218,7 +223,7 @@ int main(int argc, char ** argv) {
 
 		    vector<Cmd> Output;
 
-			if (SetCompilerMode == 0){
+			if (SetCompilerMode == false){
 				Bf *BfCompiler = new Bf;
 				if (BfCompiler->Compile(SourceBuffer, length, Output)){
 					cerr << "Compilation error\r\n";
@@ -227,9 +232,10 @@ int main(int argc, char ** argv) {
 
 			}
 			else{
+				std::cerr << "Extended mode unsupported yet!" << std::endl;
 				//TODO: Extended command set
 			}
-			SaveOutput(Output, SaveBinaryAsText, ((*OutputPath)? OutputPath :
+			SaveOutput(Output, SaveBinaryAsText, ((OutputPath)? OutputPath :
 					(SaveBinaryAsText? "a.asm": "a.out")), DebugSymbols);
 
 
@@ -237,6 +243,9 @@ int main(int argc, char ** argv) {
 		}
 
 
+	}
+	else{
+		std::cerr << "No input file, exiting!" << std::endl;		
 	}
     return 0;
 }
