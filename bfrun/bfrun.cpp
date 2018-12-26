@@ -76,18 +76,20 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 		uint16_t bias = 0;	
 		do {
 			bias = ( MemoryPtr[IP] & 0x0FFF);
+			if (MemoryPtr[IP]  & (1<<12))
+			{
+				bias |= 0xF000;
+			}
 			switch(MemoryPtr[IP] & 0xF000){
 				case (CMD_ADD << 12):
-					MemoryPtr[AP] += bias;
-					break;
 				case (CMD_SUB << 12):
-					MemoryPtr[AP] -= bias;
+
+					MemoryPtr[AP] += bias;
+
 					break;
 				case (CMD_RIGHT << 12):
-					AP +=bias;
-					break;
 				case (CMD_LEFT << 12):
-					AP -=bias;
+					AP += bias;
 					break;
 				case (CMD_INPUT << 12):
 				       MemoryPtr[AP] = In() & 0xFF;
@@ -96,16 +98,12 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 					Out(MemoryPtr[AP] & 0xFF);
 					break;
 				case (CMD_JZ_UP << 12):
+				case (CMD_JZ_DOWN << 12):	
 					IP = (MemoryPtr[AP] & 0xFF)? IP : IP + bias;
 					break;
-				case (CMD_JZ_DOWN << 12):	
-					IP = (MemoryPtr[AP] & 0xFF)? IP : IP - bias;
-					break;
 				case (CMD_JNZ_UP << 12):
-					IP = (MemoryPtr[AP] & 0xFF)? IP + bias : IP;
-					break;
 				case (CMD_JNZ_DOWN << 12):	
-					IP = (MemoryPtr[AP] & 0xFF)? IP - bias : IP;
+					IP = (MemoryPtr[AP] & 0xFF)? IP + bias : IP;
 					break;
 				case (CMD_IP_SET << 12):
 					IP = bias;

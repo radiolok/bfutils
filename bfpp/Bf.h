@@ -46,10 +46,12 @@ private:
 	size_t FindLoopEnd(std::vector<Cmd> &Output, size_t CurrentIp);
 
 
+	const compiler_options_t &options;
+
 public:
 	uint8_t Compile(const uint8_t *SourceBuffer, size_t length, std::vector<Cmd> &Output);
 
-	Bf();
+	Bf(const compiler_options_t &_options);
 	virtual ~Bf();
 };
 

@@ -24,7 +24,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
 #include "Bf.h"
 
-Bf::Bf() {
+Bf::Bf(const compiler_options_t &_options) : options(_options){
 	// TODO Auto-generated constructor stub
 
 }

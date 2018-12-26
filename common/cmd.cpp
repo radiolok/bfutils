@@ -37,12 +37,21 @@ Cmd::Cmd(uint16_t _bin){
 	cmd = 0;
 	uint16_t cmd_bin = ((_bin>>13) & 0x0007);
 	bool sign = ((_bin >> 12)&0x01)? true: false;
+		bias = (_bin&0x0FFF);
 	switch (cmd_bin){
 	case 0:
 		cmd = sign? '-':'+';
+		if (sign){
+			bias = (-bias) ;
+		}
+
 		break;
 	case 1:
 		cmd = sign? '<': '>';
+		if (sign){
+			bias = (-bias) ;
+		}
+
 		break;
 	case 2:
 		cmd = ',';
@@ -63,7 +72,7 @@ Cmd::Cmd(uint16_t _bin){
 		cmd = 'A';
 		break;
 	}
-	bias = (_bin&0x0FFF);
+
 
 }
 
@@ -133,16 +142,16 @@ uint16_t Cmd::GetCmd(void){
 	 * */
 	switch (cmd){
 	case '>':
-		result = (1 << 13) | (abs(bias) & 0x0FFF);
+		result = (1 << 13) | ((bias) & 0x0FFF);
 		break;
 	case '<':
-		result = (1 << 13) | (1 << 12) | (abs(bias) & 0x0FFF);
+		result = (1 << 13) | (1 << 12) | ((-bias) & 0x0FFF);
 		break;
 	case '+':
-		result = (abs(bias) & 0x0FFF);
+		result = ((bias) & 0x0FFF);
 		break;
 	case '-':
-		result = (0x1 << 12) | (abs(bias) & 0x0FFF);//Sign
+		result = (0x1 << 12) | ((-bias) & 0x0FFF);//Sign
 		break;
 	case '.':
 		result = (0x3 << 13);
@@ -151,10 +160,10 @@ uint16_t Cmd::GetCmd(void){
 		result = (0x2 << 13);
 		break;
 	case '[':
-		result = (0x4 << 13) |  (abs(bias) & 0x0FFF) | ((bias < 0)? (1<<12) : 0);
+		result = (0x4 << 13) |  ((bias) & 0x0FFF) | ((bias < 0)? (1<<12) : 0);
 		break;
 	case ']':
-		result = (0x5 << 13)|  (abs(bias) & 0x0FFF) | ((bias < 0)? (1<<12) : 0);
+		result = (0x5 << 13)|  ((bias) & 0x0FFF) | ((bias < 0)? (1<<12) : 0);
 		break;
 	}
 	return result;
