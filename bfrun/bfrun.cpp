@@ -59,6 +59,13 @@ void SetWordMode(bool mode){
      WordModeEnabled = mode;
 }
 
+//Set 16-bit word mode:
+bool Statistic = false;
+
+void SetStatistic(bool mode){
+     Statistic = mode;
+}
+
 bool GetWordMode(void){
      return WordModeEnabled;
 }
@@ -165,7 +172,10 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 		}while (IP < AP_MAX);
 
 	}
-	cerr << "\r\nIstructions_retired:" << i << "\r\n";
+	if (Statistic)
+	{
+		cerr << "\r\nIstructions_retired:" << i << "\r\n";
+	}
 	return status;
 }
 
@@ -174,7 +184,7 @@ int main(int argc, char *argv[]) {
 	int status = -1;
 	int c = 0;
 	char *filePath = NULL;
-	while((c = getopt(argc, argv, "f:px")) != -1){
+	while((c = getopt(argc, argv, "f:pxs")) != -1){
 		switch(c)
 		{
 		case 'f':
@@ -185,6 +195,9 @@ int main(int argc, char *argv[]) {
 		break;
 		case 'x':
 			SetWordMode(true);
+		break;
+		case 's':
+			SetStatistic(true);
 		break;
 		}
 	}
