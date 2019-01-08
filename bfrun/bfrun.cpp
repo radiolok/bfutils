@@ -201,6 +201,9 @@ int main(int argc, char *argv[]) {
 		case 's':
 			SetStatistic(true);
 		break;
+		case '?':
+			return -1;
+			break;
 		}
 	}
 	if (filePath == NULL){

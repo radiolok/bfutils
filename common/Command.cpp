@@ -33,11 +33,11 @@ void LoadShared(Image &image, uint16_t *data){
 	//Let;s find all code segments:
 	for (uint8_t section = 0; section < image.GetSectionNum(); ++section){
 		Section CurrentSection = image.GetSection(section);
-		 for (uint16_t mem = CurrentSection.GetMemoryBase();
-				 mem < CurrentSection.GetMemoryBase() + 
-				 CurrentSection.GetMemorySize(); ++mem)
+		 for (uint16_t mem = 0;
+				 mem <  CurrentSection.GetMemorySize(); 
+			 ++mem)
 		 	{
-				data[mem] = CurrentSection.GetData()[mem];
+				data[CurrentSection.GetMemoryBase() + mem] = CurrentSection.GetData()[mem];
 			}
 		
 		

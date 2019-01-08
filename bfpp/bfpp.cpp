@@ -219,7 +219,7 @@ int main(int argc, char ** argv) {
 	options.DebugLoopShifting = false;
 
 
-	while((c = getopt(argc, argv, "dei:loO:s")) != -1){
+	while((c = getopt(argc, argv, "dsei:lo:")) != -1){
 		switch(c){
 		case 'i':
 			options.InputPath = optarg;
@@ -238,6 +238,9 @@ int main(int argc, char ** argv) {
 			break;
 		case 'l':
 			options.DebugLoopShifting = true;
+			break;
+		case '?':
+			return -1;
 			break;
 		}
 	}

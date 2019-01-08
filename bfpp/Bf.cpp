@@ -90,7 +90,7 @@ uint8_t Bf::Translate(const uint8_t *SourceBuffer, size_t length, std::vector<Cm
 
 	uint8_t CurrentCmd = 0;
 	size_t CurrentBias = 0;
-	size_t LoopMarkIterator;
+	size_t LoopMarkIterator = 0;
 	//Need to clear out unused symbols:
 	size_t new_length = 0;
 	uint8_t *NewBuffer = new uint8_t[length];

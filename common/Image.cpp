@@ -88,6 +88,10 @@ Section::Section(std::fstream &File){
 		File.read(reinterpret_cast<char *>(Data), GetFileSize());
 		swapLEtoBE(Data, GetFileSize());
 	}
+	else
+	{
+		memset(Data, 0, GetMemorySize()*sizeof(uint16_t));
+	}
 	//Restore File position
 	File.seekg(Image_pos);
 }
