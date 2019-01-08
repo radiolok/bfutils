@@ -31,6 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include <iostream>
 #include "bfutils.h"
 #include "cmd.h"
+#include <string.h>
 
 
 class Section{
