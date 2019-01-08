@@ -81,99 +81,51 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 
 	ADDRESS_TYPE AP_MAX =  image.GetSection(0).GetMemoryBase() + image.GetSection(0).GetMemorySize() ;
 	size_t i = 0;
-	if (!GetWordMode()){
-		uint16_t bias = 0;	
-		do {
-			bias = ( MemoryPtr[IP] & 0x1FFF);
-			if (MemoryPtr[IP]  & (1<<12))
+
+	uint16_t JCC_MASK = GetWordMode() ? 0xFFFF : 0xFF;
+	uint16_t bias = 0;
+	do {
+		bias = (MemoryPtr[IP] & 0x1FFF);
+		if (MemoryPtr[IP] & (1 << 12))
+		{
+			bias |= 0xF000;
+		}
+		switch (MemoryPtr[IP] & 0xF000) {
+		case (CMD_IO):
+			if (bias & CMD_INPUT_MASK)
 			{
-				bias |= 0xF000;
+				MemoryPtr[AP] = In() & 0xFF;
 			}
-			switch(MemoryPtr[IP] & 0xF000){
-				case (CMD_ADD << 12):
-				case (CMD_SUB << 12):
-
-					MemoryPtr[AP] += bias;
-
-					break;
-				case (CMD_RIGHT << 12):
-				case (CMD_LEFT << 12):
-					AP += bias;
-					break;
-				case (CMD_INPUT << 12):
-				       MemoryPtr[AP] = In() & 0xFF;
-					break;
-				case (CMD_OUTPUT << 12):
-					Out(MemoryPtr[AP] & 0xFF);
-					break;
-				case (CMD_JZ_UP << 12):
-				case (CMD_JZ_DOWN << 12):	
-					IP = (MemoryPtr[AP] & 0xFF)? IP : IP + bias;
-					break;
-				case (CMD_JNZ_UP << 12):
-				case (CMD_JNZ_DOWN << 12):	
-					IP = (MemoryPtr[AP] & 0xFF)? IP + bias : IP;
-					break;
-				case (CMD_IP_SET << 12):
-					IP = bias;
-					break;
-				case (CMD_AP_SET << 12):
-					AP = bias;
-					break;
+			else if (bias & CMD_OUTPUT_MASK)
+			{
+				Out(MemoryPtr[AP] & 0xFF);
 			}
-			++i;
-			++IP;
-		}while (IP < AP_MAX);
+			break;
+		case (CMD_ADD):
+		case (CMD_SUB):
+			MemoryPtr[AP] += bias;
+			break;
+		case (CMD_RIGHT):
+		case (CMD_LEFT):
+			AP += bias;
+			break;
+
+		case (CMD_JZ):
+		case (CMD_JZ_DOWN):
+			IP = (MemoryPtr[AP] & JCC_MASK) ? IP : IP + bias;
+			break;
+		case (CMD_JNZ):
+		case (CMD_JNZ_DOWN):
+			IP = (MemoryPtr[AP] & JCC_MASK) ? IP + bias : IP;
+			break;
+		default:
+			fprintf(stderr, "IP:0x%04x Invalid opcode: 0x%04x\n", IP, MemoryPtr[IP]);
+			break;
+		}
+		++i;
+		++IP;
+	} while (IP < AP_MAX);
 	
-	}
-	else{
-	
-		uint16_t bias = 0;	
-		do {
-			bias = ( MemoryPtr[IP] & 0x0FFF);
-			switch(MemoryPtr[IP] & 0xF000){
-				case (CMD_ADD << 12):
-					MemoryPtr[AP] += bias;
-					break;
-				case (CMD_SUB << 12):
-					MemoryPtr[AP] -= bias;
-					break;
-				case (CMD_RIGHT << 12):
-					AP +=bias;
-					break;
-				case (CMD_LEFT << 12):
-					AP -=bias;
-					break;
-				case (CMD_INPUT << 12):
-				       MemoryPtr[AP] = In() & 0xFFFF;
-					break;
-				case (CMD_OUTPUT << 12):
-					Out(MemoryPtr[AP] & 0xFFFF);
-					break;
-				case (CMD_JZ_UP << 12):
-					IP = (MemoryPtr[AP] & 0xFFFF)? IP : IP + bias;
-					break;
-				case (CMD_JZ_DOWN << 12):	
-					IP = (MemoryPtr[AP] & 0xFFFF)? IP : IP - bias;
-					break;
-				case (CMD_JNZ_UP << 12):
-					IP = (MemoryPtr[AP] & 0xFFFF)? IP + bias : IP;
-					break;
-				case (CMD_JNZ_DOWN << 12):	
-					IP = (MemoryPtr[AP] & 0xFFFF)? IP - bias : IP;
-					break;
-				case (CMD_IP_SET << 12):
-					IP = bias;
-					break;
-				case (CMD_AP_SET << 12):
-					AP = bias;
-					break;
-			}
-			++i;
-			++IP;
-		}while (IP < AP_MAX);
-
-	}
 	if (Statistic)
 	{
 		cerr << "\r\nIstructions_retired:" << i << "\r\n";

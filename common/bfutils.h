@@ -40,35 +40,35 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #define SECTION_CODE 0x01
 #define SECTION_DATA 0x02
 
-
-#define CORE_CMD_ADD_SUB 0x00
-#define CORE_CMD_RIGHT_LEFT 0x01
-#define CORE_CMD_INPUT 0x02
-#define CORE_CMD_OUTPUT 0x03
-#define CORE_CMD_JZ_UP_DOWN 0x04
-#define CORE_CMD_JNZ_UP_DOWN 0x05
-
-
 //Commands list:
 //
 //
-#define CMD_ADD (0x0)
-#define CMD_SUB (0x1)
+#define CMD_NOP (0x0)
 
-#define CMD_RIGHT (0x2)
-#define CMD_LEFT (0x03)
+#define CMD_IO (0x1000) //0x0C01
+#define CMD_INPUT_MASK (0x0001)
+#define CMD_OUTPUT_MASK (0x0002)
 
-#define CMD_INPUT (0x4)
+#define CMD_ADD (0x2000)
+#define CMD_SUB (0x3000)
 
-#define CMD_OUTPUT (0x6)
-#define CMD_JZ_UP  (0x8)
-#define CMD_JZ_DOWN (0x9)
+#define CMD_RIGHT (0x4000)
+#define CMD_LEFT (0x5000)
 
-#define CMD_JNZ_UP  (0xA)
-#define CMD_JNZ_DOWN (0xB)
+#define CMD_JZ  (0x6000)
+#define CMD_JZ_DOWN (0x7000)
 
-#define CMD_IP_SET   (0xC)
-#define CMD_AP_SET (0xE)
+#define CMD_JNZ  (0x8000)
+#define CMD_JNZ_DOWN (0x9000)
+
+#define CMD_XOR (0xA000)
+//#define CMD_XOR_NEG (0x0B000)
+
+//#define FREE_CODE (0xC000)
+//#define FREE_CODE (0xD000)
+//#define FREE_CODE (0xE000)
+
+#define CMD_HALT (0xF000)
 
 #include <cstdint>
 #include <cstddef>

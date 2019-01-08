@@ -151,23 +151,23 @@ uint16_t Cmd::GetCmd(void){
 	switch (cmd){
 	case '>':
 	case '<':
-		result = (CMD_RIGHT << 12) | ((bias) & 0x1FFF);
+		result = (CMD_RIGHT ) | ((bias) & 0x1FFF);
 		break;
 	case '+':
 	case '-':
-		result = (CMD_ADD << 12) | ((bias) & 0x1FFF);
+		result = (CMD_ADD ) | ((bias) & 0x1FFF);
 		break;
 	case '.':
-		result = (CMD_OUTPUT << 12);
+		result = CMD_IO | CMD_OUTPUT_MASK;
 		break;
 	case ',':
-		result = (CMD_INPUT << 12);
+		result = CMD_IO | CMD_INPUT_MASK;
 		break;
 	case '[':
-		result = (CMD_JZ_UP << 12) |   ((bias) & 0x1FFF);
+		result = (CMD_JZ ) |   ((bias) & 0x1FFF);
 		break;
 	case ']':
-		result = (CMD_JNZ_UP << 12) |   ((bias) & 0x1FFF);
+		result = (CMD_JNZ ) |   ((bias) & 0x1FFF);
 		break;
 	}
 	return result;
