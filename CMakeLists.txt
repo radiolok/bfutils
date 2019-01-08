@@ -5,7 +5,12 @@ project (bfutils)
 
 
 set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_CXX_FLAGS "-O3")        ## Optimize
+IF (WIN32)
+    set(CMAKE_CXX_FLAGS "/O2")        ## Optimize
+ELSE()
+    set(CMAKE_CXX_FLAGS "-O2")        ## Optimize
+
+ENDIF()
 
 set (CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/build)
 set (CMAKE_BUILD_FILES_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -20,3 +25,4 @@ include_directories("${PROJECT_SOURCE_DIR}")
 
 add_subdirectory(bfpp)
 add_subdirectory(bfrun)
+add_subdirectory(bfloader)
