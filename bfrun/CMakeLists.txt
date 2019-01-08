@@ -13,14 +13,27 @@ set(COMMON_LIB ${PROJECT_SOURCE_DIR}/../common)
 
 include_directories(${COMMON_LIB})
 
-add_library(command_t ${COMMON_LIB}/Command.cpp)
+set (SOURCES 
+        bfrun.cpp 
+        ${COMMON_LIB}/Command.cpp 
+        ${COMMON_LIB}/Command.h 
+        ${COMMON_LIB}/Console.cpp 
+        ${COMMON_LIB}/Console.h 
+        ${COMMON_LIB}/cmd.cpp
+        ${COMMON_LIB}/cmd.h
+        ${COMMON_LIB}/Image.cpp 
+        ${COMMON_LIB}/Image.h 
+        ${COMMON_LIB}/bfutils.cpp
+        ${COMMON_LIB}/bfutils.h
+)
 
-add_library(Console ${COMMON_LIB}/Console.cpp)
+IF (WIN32)
+    set (SOURCES ${SOURCES} 
+    ${COMMON_LIB}/getopt.cpp
+    ${COMMON_LIB}/getopt.h
+    )
+ENDIF()
 
-#add_library(bfutils ${COMMON_LIB}/bfutils.cpp)
-#add_library(image ${COMMON_LIB}/Image.cpp ${COMMON_LIB}/bfutils.cpp) 
-
-add_executable(bfrun bfrun.cpp)
-
-target_link_libraries(bfrun Console image command_t)
-
+add_executable(bfrun 
+    ${SOURCES}
+)

@@ -28,19 +28,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include "cmd.h"
 
 #include <string.h>
-#include <linux/limits.h>
 #include "Bf.h"
 #include "bfutils.h"
 #include <Image.h>
 #include <iomanip>
 #include <sstream>
-//#if defined (__linux__)
-	//#include <getopt.h>
-//#else
-	#include <getopts.hpp>
-//#endif
+#include <getopt.h>
 
-
+#ifndef PATH_MAX
+	#define PATH_MAX 1024
+#endif
 
 
 using namespace std;

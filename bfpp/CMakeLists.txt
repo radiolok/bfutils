@@ -13,15 +13,27 @@ set(COMMON_LIB ${PROJECT_SOURCE_DIR}/../common)
 
 include_directories(${COMMON_LIB})
 
-add_library(cmd ${COMMON_LIB}/cmd.cpp)
+set (SOURCES
+    bfpp.cpp
+    Bf.cpp
+    Bf.h
+    ${COMMON_LIB}/cmd.cpp
+    ${COMMON_LIB}/cmd.h
+    ${COMMON_LIB}/bfutils.cpp
+    ${COMMON_LIB}/bfutils.h
+    ${COMMON_LIB}/Image.cpp 
+    ${COMMON_LIB}/Image.h 
+)
 
-add_library(bfutils ${COMMON_LIB}/bfutils.cpp)
+IF (WIN32)
+    set (SOURCES ${SOURCES} 
+    ${COMMON_LIB}/getopt.cpp
+    ${COMMON_LIB}/getopt.h
+    )
 
-add_library(image ${COMMON_LIB}/Image.cpp ${COMMON_LIB}/bfutils.cpp ${COMMON_LIB}/cmd.cpp) 
+ENDIF()
 
-add_library(bf Bf.cpp)
-
-add_executable(bfpp bfpp.cpp)
-
-target_link_libraries(bfpp bf cmd  image)
+add_executable(bfpp 
+    ${SOURCES}
+)
 

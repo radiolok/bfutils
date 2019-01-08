@@ -24,7 +24,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
 #include <iostream>
 #include <iomanip>
-#include <unistd.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -40,6 +40,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include "bfutils.h"
 
 #include "Command.h"
+
+#include <getopt.h>
 
 using namespace std;
 
