@@ -26,14 +26,19 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include <fstream>
 #include <vector>
 #include "cmd.h"
-#include <getopt.h>
+
 #include <string.h>
-#include <linux/limits.h>
 #include "Bf.h"
 #include "bfutils.h"
 #include <Image.h>
 #include <iomanip>
 #include <sstream>
+#include <getopt.h>
+
+#ifndef PATH_MAX
+	#define PATH_MAX 1024
+#endif
+
 
 using namespace std;
 
@@ -60,32 +65,52 @@ bool IsABfSymbol(uint8_t c){
 	return result;
 }
 
-string GetDebugSymbol(Cmd cmd){
+size_t loopLevel = 0;
+
+string GetDebugSymbol(Cmd cmd, bool loopShift = false){
 	std::stringstream result;
+	result << ' ';
+	if (loopShift)
+	{
+		if (loopLevel < 10)
+		{			
+			std::string blanks(loopLevel, '|');
+			result << blanks;
+		}
+		else{
+			std::string blanks(8, '|');
+			result << loopLevel << ">>" << blanks;
+		}
+	}
+	
+
+
 	switch (cmd.GetCmdChar()){
 	case '>':
-		result << "\tPTR(" << cmd.GetBias() << ")";
+		result << "AP += " <<abs(cmd.GetBias());
 		break;
 	case '<':
-		result << "\tPTR(-" << cmd.GetBias() << ")";
+		result << "AP -= " << abs(cmd.GetBias());
 		break;
 	case '+':
-		result << "\tADD(" << cmd.GetBias() << ")";
+		result << "*AP += " << abs(cmd.GetBias());
 		break;
 	case '-':
-		result << "\tADD(-" << cmd.GetBias() << ")";
+		result << "*AP -= " << abs(cmd.GetBias());
 		break;
 	case '.':
-		result << "\tPRINT";
+		result << "putc";
 		break;
 	case ',':
-		result << "\tGET";
+		result << "getc";
 		break;
 	case '[':
-		result << "\tJZ(" << cmd.GetBias() << ")";
+		loopLevel++;
+		result << "(*AP==0)? IP " << ((cmd.GetBias()>0)? "+= " : "-= ") << abs(cmd.GetBias()) << ": PASS";
 		break;
 	case ']':
-		result << "\tJNZ(" << cmd.GetBias() << ")";
+		loopLevel--;
+		result << "(*AP!=0)? IP " << ((cmd.GetBias()>0)? "+= " : "-= ")  << abs(cmd.GetBias()) << ": PASS";
 		break;
 	default:
 
@@ -95,9 +120,17 @@ string GetDebugSymbol(Cmd cmd){
 }
 
 
-uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path, bool DebugSymbols){
+uint8_t SaveOutput(std::vector<Cmd> &Output,  const compiler_options_t &options){
 	uint8_t status = 0;
-	if (binaryastext){
+	char path[PATH_MAX];
+	if (options.OutputPath == NULL)
+	{
+		strcpy(path, (options.SaveBinaryAsText)? "a.asm" : "a.out");
+	}
+	else{
+		strcpy(path, options.OutputPath);
+	}
+	if (options.SaveBinaryAsText){
 		std::fstream OutputFile (path, std::fstream::out);
 		if (!OutputFile.good()){
 			cerr << "Output debug File open error, exiting\r\n";
@@ -110,7 +143,7 @@ uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path
 			//Save:
 				OutputFile << "IP:0x" << setfill('0') << setw(4) << hex << ip << " "
 						<< "\tCMD:0x"  << setfill('0') << setw(4) << hex << iter->GetCmd()
-				<< (DebugSymbols? GetDebugSymbol(*iter) : "") << endl;
+				<< (options.DebugSymbols? GetDebugSymbol(*iter, options.DebugLoopShifting) : "") << endl;
 			}
 			OutputFile.close();
 		}
@@ -161,6 +194,9 @@ uint8_t SaveOutput(std::vector<Cmd> &Output, bool binaryastext, const char *path
 	return status;
 }
 
+compiler_options_t options;
+
+
 int main(int argc, char ** argv) {
 	if (argc < 2){
 		cerr << "Usage:\r\n";
@@ -168,40 +204,48 @@ int main(int argc, char ** argv) {
 		cerr << "\t-e - enable extended instruction set[UNSUPPORTED]\r\n";
 		cerr << "\t-s - save output binary in text format\r\n";
 		cerr << "\t-d - enable debug symbols for text format\r\n";
+		cerr << "\t-On - enable optimization\r\n";
+		cerr << "\t-l loop shifting on debug\r\n";
 		cerr << "Set source file to compile\r\n";
 		return -1;
 	}
 	int c = 0;
-	char *InputPath = NULL;
-	char *OutputPath = NULL;
-	bool SetCompilerMode = false;
-	bool SaveBinaryAsText = false;
-	bool DebugSymbols = false;
-	while((c = getopt(argc, argv, "i:o:esd")) != -1){
+	options.InputPath = NULL;
+	options.OutputPath = NULL;
+	options.SetCompilerMode = false;
+	options.SaveBinaryAsText = false;
+	options.DebugSymbols = false;
+	options.OptimizationLevel = 0;
+	options.DebugLoopShifting = false;
+
+
+	while((c = getopt(argc, argv, "dei:loO:s")) != -1){
 		switch(c){
 		case 'i':
-			InputPath = optarg;
+			options.InputPath = optarg;
 			break;
 		case 'o':
-			OutputPath = optarg;
+			options.OutputPath = optarg;
 			break;
 		case 'e':
-			SetCompilerMode = true;
+			options.SetCompilerMode = true;
 			break;
 		case 's':
-			SaveBinaryAsText = true;
+			options.SaveBinaryAsText = true;
 			break;
 		case 'd':
-			DebugSymbols = true;
+			options.DebugSymbols = true;
 			break;
-
+		case 'l':
+			options.DebugLoopShifting = true;
+			break;
 		}
 	}
-	if (InputPath[0]){
-		std::ifstream SourceFile (InputPath, std::ifstream::binary);
+	if (options.InputPath){
+		std::ifstream SourceFile (options.InputPath, std::ifstream::binary);
 
 		if (!SourceFile.good()){
-			cerr << "Source File"<< InputPath <<" open error, exiting\r\n";
+			cerr << "Source File"<< options.InputPath <<" open error, exiting\r\n";
 					return -2;
 		}
 		else{
@@ -217,26 +261,22 @@ int main(int argc, char ** argv) {
 		    SourceFile.close();
 
 		    vector<Cmd> Output;
-
-			if (SetCompilerMode == 0){
-				Bf *BfCompiler = new Bf;
-				if (BfCompiler->Compile(SourceBuffer, length, Output)){
-					cerr << "Compilation error\r\n";
-					return -2;
-				}
-
+			Bf *BfCompiler = new Bf(options);
+			if (BfCompiler->Compile(SourceBuffer, length, Output)){
+				cerr << "Compilation error\r\n";
+				return -2;
 			}
-			else{
-				//TODO: Extended command set
-			}
-			SaveOutput(Output, SaveBinaryAsText, ((*OutputPath)? OutputPath :
-					(SaveBinaryAsText? "a.asm": "a.out")), DebugSymbols);
+			
+			SaveOutput(Output,options); 
 
 
 			delete[] SourceBuffer;
 		}
 
 
+	}
+	else{
+		std::cerr << "No input file, exiting!" << std::endl;		
 	}
     return 0;
 }

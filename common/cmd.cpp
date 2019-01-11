@@ -37,12 +37,21 @@ Cmd::Cmd(uint16_t _bin){
 	cmd = 0;
 	uint16_t cmd_bin = ((_bin>>13) & 0x0007);
 	bool sign = ((_bin >> 12)&0x01)? true: false;
+		bias = (_bin&0x0FFF);
 	switch (cmd_bin){
 	case 0:
 		cmd = sign? '-':'+';
+		if (sign){
+			bias = (-bias) ;
+		}
+
 		break;
 	case 1:
 		cmd = sign? '<': '>';
+		if (sign){
+			bias = (-bias) ;
+		}
+
 		break;
 	case 2:
 		cmd = ',';
@@ -63,15 +72,23 @@ Cmd::Cmd(uint16_t _bin){
 		cmd = 'A';
 		break;
 	}
-	bias = (_bin&0x0FFF);
+
 
 }
 
 Cmd::Cmd(uint8_t _cmd):cmd(_cmd), bias(0){
 
 }
-Cmd::Cmd (uint8_t _cmd, int16_t _bias) : cmd(_cmd), bias(_bias){
-
+Cmd::Cmd (uint8_t _cmd, int16_t _bias) : cmd(_cmd){
+switch (_cmd){
+	case '<':
+	case '-':
+		bias = -_bias;
+		break;
+	default:
+		bias = _bias;
+		break;
+	}
 }
 Cmd::Cmd (uint8_t _cmd, std::string _name): cmd(_cmd), bias(0), name(_name){
 
@@ -122,39 +139,35 @@ uint16_t Cmd::GetCmd(void){
 	 *
 	 * */
 
-	/* 000 - +-, if - bit 12 = 1
-	 * 001 - <>, if > bit 12 = 1
-	 * 010 - Console Input
-	 * 011 - Console Output
-	 * 100 - JZ
-	 * 101 - JNZ
-	 * 110 - LD_IP
-	 * 111 - LD_AP
+	/* 0000 - +-, if - bit 12 = 1
+	 * 0010 - <>, if > bit 12 = 1
+	 * 0100 - Console Input
+	 * 0110 - Console Output
+	 * 1000 - JZ
+	 * 1010 - JNZ
+	 * 1100 - LD_IP
+	 * 1110 - LD_AP
 	 * */
 	switch (cmd){
 	case '>':
-		result = (1 << 13) | (abs(bias) & 0x0FFF);
-		break;
 	case '<':
-		result = (1 << 13) | (1 << 12) | (abs(bias) & 0x0FFF);
+		result = (CMD_RIGHT << 12) | ((bias) & 0x1FFF);
 		break;
 	case '+':
-		result = (abs(bias) & 0x0FFF);
-		break;
 	case '-':
-		result = (0x1 << 12) | (abs(bias) & 0x0FFF);//Sign
+		result = (CMD_ADD << 12) | ((bias) & 0x1FFF);
 		break;
 	case '.':
-		result = (0x3 << 13);
+		result = (CMD_OUTPUT << 12);
 		break;
 	case ',':
-		result = (0x2 << 13);
+		result = (CMD_INPUT << 12);
 		break;
 	case '[':
-		result = (0x4 << 13) |  (abs(bias) & 0x0FFF) | ((bias < 0)? (1<<12) : 0);
+		result = (CMD_JZ_UP << 12) |   ((bias) & 0x1FFF);
 		break;
 	case ']':
-		result = (0x5 << 13)|  (abs(bias) & 0x0FFF) | ((bias < 0)? (1<<12) : 0);
+		result = (CMD_JNZ_UP << 12) |   ((bias) & 0x1FFF);
 		break;
 	}
 	return result;

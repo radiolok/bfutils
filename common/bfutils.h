@@ -78,6 +78,38 @@ enum class DataType { ByteData = 0, WordData = 1 };
 typedef  uint8_t BF_STATUS;  
 typedef  uint16_t  ADDRESS_TYPE;
 
+typedef struct __compiler_options_t
+{
+	char *InputPath;
+	char *OutputPath;
+
+	/*
+	-O1 - adding operations join together
+	*/
+	int OptimizationLevel;
+	/*
+	-e
+	if true - full instruction set is supported
+	if false - only basic insturction set
+	*/
+	bool SetCompilerMode;
+	/*
+	-s
+	save in ascii format
+	*/
+	bool SaveBinaryAsText;
+	/*
+	-d
+	print debug assembly
+	*/
+	bool DebugSymbols;	
+
+	/*
+	-l
+	if true, debug output would be aligned with spaces, depending on current loop stack*/
+	bool DebugLoopShifting;
+}compiler_options_t;
+
 typedef union  _WordToBigEndian_t{
 	uint16_t Word;
 	struct {

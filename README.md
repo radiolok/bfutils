@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/radiolok/bfutils.svg?branch=master)](https://travis-ci.org/radiolok/bfutils)
+
 # Brainfuck utils
 
 Brainfuck programmig tools for Von-Neumann extended brainfuck computer.

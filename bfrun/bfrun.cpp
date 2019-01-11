@@ -24,7 +24,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
 #include <iostream>
 #include <iomanip>
-#include <unistd.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -40,6 +40,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include "bfutils.h"
 
 #include "Command.h"
+
+#include <getopt.h>
 
 using namespace std;
 
@@ -59,6 +61,13 @@ void SetWordMode(bool mode){
      WordModeEnabled = mode;
 }
 
+//Set 16-bit word mode:
+bool Statistic = false;
+
+void SetStatistic(bool mode){
+     Statistic = mode;
+}
+
 bool GetWordMode(void){
      return WordModeEnabled;
 }
@@ -75,19 +84,21 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 	if (!GetWordMode()){
 		uint16_t bias = 0;	
 		do {
-			bias = ( MemoryPtr[IP] & 0x0FFF);
+			bias = ( MemoryPtr[IP] & 0x1FFF);
+			if (MemoryPtr[IP]  & (1<<12))
+			{
+				bias |= 0xF000;
+			}
 			switch(MemoryPtr[IP] & 0xF000){
 				case (CMD_ADD << 12):
-					MemoryPtr[AP] += bias;
-					break;
 				case (CMD_SUB << 12):
-					MemoryPtr[AP] -= bias;
+
+					MemoryPtr[AP] += bias;
+
 					break;
 				case (CMD_RIGHT << 12):
-					AP +=bias;
-					break;
 				case (CMD_LEFT << 12):
-					AP -=bias;
+					AP += bias;
 					break;
 				case (CMD_INPUT << 12):
 				       MemoryPtr[AP] = In() & 0xFF;
@@ -96,16 +107,12 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 					Out(MemoryPtr[AP] & 0xFF);
 					break;
 				case (CMD_JZ_UP << 12):
+				case (CMD_JZ_DOWN << 12):	
 					IP = (MemoryPtr[AP] & 0xFF)? IP : IP + bias;
 					break;
-				case (CMD_JZ_DOWN << 12):	
-					IP = (MemoryPtr[AP] & 0xFF)? IP : IP - bias;
-					break;
 				case (CMD_JNZ_UP << 12):
-					IP = (MemoryPtr[AP] & 0xFF)? IP + bias : IP;
-					break;
 				case (CMD_JNZ_DOWN << 12):	
-					IP = (MemoryPtr[AP] & 0xFF)? IP - bias : IP;
+					IP = (MemoryPtr[AP] & 0xFF)? IP + bias : IP;
 					break;
 				case (CMD_IP_SET << 12):
 					IP = bias;
@@ -167,7 +174,10 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 		}while (IP < AP_MAX);
 
 	}
-	cerr << "\r\nIstructions_retired:" << i << "\r\n";
+	if (Statistic)
+	{
+		cerr << "\r\nIstructions_retired:" << i << "\r\n";
+	}
 	return status;
 }
 
@@ -176,7 +186,7 @@ int main(int argc, char *argv[]) {
 	int status = -1;
 	int c = 0;
 	char *filePath = NULL;
-	while((c = getopt(argc, argv, "f:px")) != -1){
+	while((c = getopt(argc, argv, "f:pxs")) != -1){
 		switch(c)
 		{
 		case 'f':
@@ -187,6 +197,9 @@ int main(int argc, char *argv[]) {
 		break;
 		case 'x':
 			SetWordMode(true);
+		break;
+		case 's':
+			SetStatistic(true);
 		break;
 		}
 	}
