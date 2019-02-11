@@ -41,6 +41,8 @@ private:
 
 	uint8_t Translate(const uint8_t *SourceBuffer, size_t length, std::vector<Cmd> &Output);
 
+	uint8_t Optimize(std::vector<Cmd> &Input, std::vector<Cmd> &Output);
+
 	uint8_t Linking(std::vector<Cmd> &Output);
 
 	size_t FindLoopEnd(std::vector<Cmd> &Output, size_t CurrentIp);

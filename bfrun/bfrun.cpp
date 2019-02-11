@@ -100,6 +100,10 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 			{
 				Out(MemoryPtr[AP] & 0xFF);
 			}
+			else if (bias & CMD_CTRLIO_CLR_DATA)
+			{
+				MemoryPtr[AP] = 0;
+			}
 			break;
 		case (CMD_ADD):
 		case (CMD_SUB):
@@ -119,7 +123,7 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 			IP = (MemoryPtr[AP] & JCC_MASK) ? IP + bias : IP;
 			break;
 		default:
-			fprintf(stderr, "IP:0x%04x Invalid opcode: 0x%04x\n", IP, MemoryPtr[IP]);
+			fprintf(stderr, "IP:0x04lx Unknown Opcode: 0x%04lx", IP, MemoryPtr[IP]);
 			break;
 		}
 		++i;

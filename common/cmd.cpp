@@ -169,6 +169,8 @@ uint16_t Cmd::GetCmd(void){
 	case ']':
 		result = (CMD_JNZ ) |   ((bias) & 0x1FFF);
 		break;
+	case '0':
+		result = (CMD_IO) | (CMD_CTRLIO_CLR_DATA);
 	}
 	return result;
 }

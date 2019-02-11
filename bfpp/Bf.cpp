@@ -141,6 +141,54 @@ uint8_t Bf::Translate(const uint8_t *SourceBuffer, size_t length, std::vector<Cm
 	return status;
 }
 
+uint8_t Bf::Optimize(std::vector<Cmd> &Input, std::vector<Cmd> &Output)
+{
+	for (auto cmd = Input.begin(); cmd != Input.end(); ++cmd)
+	{
+		switch (cmd->GetCmdChar()) {
+			//For this Cmd's we need to calc shift:
+		case '>':
+		case '<':
+		case '+':
+		case '-':
+		case '.':
+		case ',':
+		case ']':
+			Output.push_back(*cmd);
+			continue;
+		case '[':
+			if ((Input.end() - cmd) >= 2)
+			{
+				if ((((cmd + 1)->GetCmdChar() == '-') || ((cmd + 1)->GetCmdChar() == '+')) && ((cmd+1)->GetBias() == 1) && (((cmd + 2)->GetCmdChar() == ']')))
+				{
+					Output.push_back(Cmd(static_cast<uint8_t>(0x30)));
+					++cmd;
+					++cmd;
+				}
+				else
+				{
+					Output.push_back(*cmd);
+					continue;
+				}
+			}
+			else
+			{
+				Output.push_back(*cmd);
+				continue;
+			}
+			
+			break;
+		default:
+			fprintf(stderr, "Invalid opcode: %c\n", cmd->GetCmdChar());
+			break;
+		}
+
+
+		Output.push_back(*cmd);
+	}
+	return 0;
+}
+
 size_t Bf::FindLoopEnd(std::vector<Cmd> &Output, size_t CurrentIp){
 	size_t i = 1;
 	size_t NewIp = CurrentIp;
@@ -196,8 +244,15 @@ uint8_t Bf::Compile(const uint8_t *SourceBuffer, size_t length, std::vector<Cmd>
 
 	uint8_t status = SUCCESS;
 
-	status = Translate(SourceBuffer, length, Output);
+	std::vector<Cmd> Input;
+
+	status = Translate(SourceBuffer, length, Input);
 	if (status){
+		return TRANSLATION_ERROR;
+	}
+
+	status = Optimize(Input, Output);
+	if (status) {
 		return TRANSLATION_ERROR;
 	}
 

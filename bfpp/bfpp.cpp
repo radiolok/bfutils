@@ -112,8 +112,11 @@ string GetDebugSymbol(Cmd cmd, bool loopShift = false){
 		loopLevel--;
 		result << "(*AP!=0)? IP " << ((cmd.GetBias()>0)? "+= " : "-= ")  << abs(cmd.GetBias()) << ": PASS";
 		break;
+	case '0':
+		result << "*AP = 0" ;
+		break;
 	default:
-
+		fprintf(stderr, "Unknown Opcode: %c\n", cmd.GetCmdChar());
 		break;
 	}
 	return result.str();
@@ -226,6 +229,9 @@ int main(int argc, char ** argv) {
 			break;
 		case 'o':
 			options.OutputPath = optarg;
+			break;
+		case 'O':
+			options.OptimizationLevel = atol(optarg);
 			break;
 		case 'e':
 			options.SetCompilerMode = true;
