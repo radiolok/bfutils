@@ -222,7 +222,7 @@ int main(int argc, char ** argv) {
 	options.DebugLoopShifting = false;
 
 
-	while((c = getopt(argc, argv, "dsei:lo:")) != -1){
+	while((c = getopt(argc, argv, "dsei:lo:O:")) != -1){
 		switch(c){
 		case 'i':
 			options.InputPath = optarg;

@@ -43,6 +43,8 @@ private:
 
 	uint8_t Optimize(std::vector<Cmd> &Input, std::vector<Cmd> &Output);
 
+	uint8_t OptimizeDataClr(std::vector<Cmd> &Input, std::vector<Cmd> &Output);
+
 	uint8_t Linking(std::vector<Cmd> &Output);
 
 	size_t FindLoopEnd(std::vector<Cmd> &Output, size_t CurrentIp);

@@ -141,7 +141,7 @@ uint8_t Bf::Translate(const uint8_t *SourceBuffer, size_t length, std::vector<Cm
 	return status;
 }
 
-uint8_t Bf::Optimize(std::vector<Cmd> &Input, std::vector<Cmd> &Output)
+uint8_t Bf::OptimizeDataClr(std::vector<Cmd> &Input, std::vector<Cmd> &Output)
 {
 	for (auto cmd = Input.begin(); cmd != Input.end(); ++cmd)
 	{
@@ -159,7 +159,7 @@ uint8_t Bf::Optimize(std::vector<Cmd> &Input, std::vector<Cmd> &Output)
 		case '[':
 			if ((Input.end() - cmd) >= 2)
 			{
-				if ((((cmd + 1)->GetCmdChar() == '-') || ((cmd + 1)->GetCmdChar() == '+')) && ((cmd+1)->GetBias() == 1) && (((cmd + 2)->GetCmdChar() == ']')))
+				if ((((cmd + 1)->GetCmdChar() == '-') || ((cmd + 1)->GetCmdChar() == '+')) && (abs((cmd+1)->GetBias()) == 1) && (((cmd + 2)->GetCmdChar() == ']')))
 				{
 					Output.push_back(Cmd(static_cast<uint8_t>(0x30)));
 					++cmd;
@@ -182,10 +182,24 @@ uint8_t Bf::Optimize(std::vector<Cmd> &Input, std::vector<Cmd> &Output)
 			fprintf(stderr, "Invalid opcode: %c\n", cmd->GetCmdChar());
 			break;
 		}
-
-
-		Output.push_back(*cmd);
 	}
+	return 0;
+}
+
+uint8_t Bf::Optimize(std::vector<Cmd> &Input, std::vector<Cmd> &Output)
+{
+	if (options.OptimizationLevel == 0)
+	{
+		for (auto cmd = Input.begin(); cmd != Input.end(); ++cmd)
+		{
+			Output.push_back(*cmd);
+		}
+	}
+	if (options.OptimizationLevel > 0)
+	{
+		OptimizeDataClr(Input, Output);
+	}
+
 	return 0;
 }
 
