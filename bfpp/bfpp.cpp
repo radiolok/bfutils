@@ -126,14 +126,10 @@ string GetDebugSymbol(Cmd cmd, bool loopShift = false){
 uint8_t SaveOutput(std::vector<Cmd> &Output,  const compiler_options_t &options){
 	uint8_t status = 0;
 	char path[PATH_MAX];
-	if (options.OutputPath == NULL)
-	{
-		strcpy(path, (options.SaveBinaryAsText)? "a.asm" : "a.out");
-	}
-	else{
-		strcpy(path, options.OutputPath);
-	}
+
 	if (options.SaveBinaryAsText){
+		strcpy(path, (options.OutputPath == NULL)? "a.asm" : options.OutputPath);
+		
 		std::fstream OutputFile (path, std::fstream::out);
 		if (!OutputFile.good()){
 			cerr << "Output debug File open error, exiting\r\n";
@@ -153,7 +149,38 @@ uint8_t SaveOutput(std::vector<Cmd> &Output,  const compiler_options_t &options)
 
 
 	}
+	else if (options.SaveBinaryAsHex)
+	{
+		strcpy(path, (options.OutputPath == NULL) ? "a.hex" : options.OutputPath);
+		std::fstream OutputFile(path, std::fstream::out);
+		if (!OutputFile.good()) {
+			cerr << "Output debug File open error, exiting\r\n";
+			return OPEN_OUTPUT_ERROR;
+		}
+		else {
+			size_t ip = 0;
+			//copy data:
+			size_t align = 0;
+			OutputFile << "uint16_t application[] = {\n";
+			for (auto iter = Output.begin(); iter < Output.end(); ++iter, ++ip) {
+				if (ip != 0)
+				{
+					OutputFile << ", ";
+				}
+				if (align == 10)
+				{
+					OutputFile << "\n";
+					align = 0;
+				}
+				OutputFile << "0x" << setfill('0') << setw(4) << hex << iter->GetCmd();
+				align++;
+			}
+			OutputFile << "};";
+			OutputFile.close();
+		}
+	}
 	else{
+		strcpy(path, (options.OutputPath == NULL) ? "a.asm" : options.OutputPath);
 		std::fstream OutputFile;
 		OutputFile.open(path, std::fstream::out | std::fstream::trunc);
 		OutputFile.close();
@@ -206,6 +233,7 @@ int main(int argc, char ** argv) {
 		cerr << argv[0] << " -i source file [-o output file] [-e -s -d]\r\n";
 		cerr << "\t-e - enable extended instruction set[UNSUPPORTED]\r\n";
 		cerr << "\t-s - save output binary in text format\r\n";
+		cerr << "\t-H - save output binary in Hex format\r\n";
 		cerr << "\t-d - enable debug symbols for text format\r\n";
 		cerr << "\t-On - enable optimization\r\n";
 		cerr << "\t-l loop shifting on debug\r\n";
@@ -220,9 +248,10 @@ int main(int argc, char ** argv) {
 	options.DebugSymbols = false;
 	options.OptimizationLevel = 0;
 	options.DebugLoopShifting = false;
+	options.SaveBinaryAsHex = false;
 
 
-	while((c = getopt(argc, argv, "dsei:lo:O:")) != -1){
+	while((c = getopt(argc, argv, "dsei:lo:O:H")) != -1){
 		switch(c){
 		case 'i':
 			options.InputPath = optarg;
@@ -238,6 +267,9 @@ int main(int argc, char ** argv) {
 			break;
 		case 's':
 			options.SaveBinaryAsText = true;
+			break;
+		case 'H':
+			options.SaveBinaryAsHex = true;
 			break;
 		case 'd':
 			options.DebugSymbols = true;

@@ -100,6 +100,14 @@ uint8_t Bf::Translate(const uint8_t *SourceBuffer, size_t length, std::vector<Cm
 			++new_length;
 		}
 	}
+	if (0xff00 > new_length)
+	{
+		Output.push_back(Cmd('>', 0xff00));
+	}
+	else
+	{
+		Output.push_back(Cmd('>', new_length));
+	}
 	//Start translating
 	for (size_t i = 0 ; i < new_length; ++i)
 	 {
@@ -138,6 +146,7 @@ uint8_t Bf::Translate(const uint8_t *SourceBuffer, size_t length, std::vector<Cm
  			 }
 		 }
 	 }
+	Output.push_back(Cmd('H', 0x00));
 	return status;
 }
 

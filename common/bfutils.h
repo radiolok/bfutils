@@ -106,6 +106,12 @@ typedef struct __compiler_options_t
 	save in ascii format
 	*/
 	bool SaveBinaryAsText;
+
+	/*
+	-H
+	save binary as HEX
+	*/
+	bool SaveBinaryAsHex;
 	/*
 	-d
 	print debug assembly

@@ -171,6 +171,10 @@ uint16_t Cmd::GetCmd(void){
 		break;
 	case '0':
 		result = (CMD_IO) | (CMD_CTRLIO_CLR_DATA);
+		break;
+	case 'H':
+		result = (CMD_IO) | (CMD_CTRLIO_HALT);
+		break;
 	}
 	return result;
 }
