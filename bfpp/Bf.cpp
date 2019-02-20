@@ -100,6 +100,7 @@ uint8_t Bf::Translate(const uint8_t *SourceBuffer, size_t length, std::vector<Cm
 			++new_length;
 		}
 	}
+	Output.push_back(Cmd(' ', 0));
 	if (0xff00 > new_length)
 	{
 		Output.push_back(Cmd('>', 0xff00));

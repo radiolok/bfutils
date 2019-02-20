@@ -180,7 +180,7 @@ uint8_t SaveOutput(std::vector<Cmd> &Output,  const compiler_options_t &options)
 		}
 	}
 	else{
-		strcpy(path, (options.OutputPath == NULL) ? "a.asm" : options.OutputPath);
+		strcpy(path, (options.OutputPath == NULL) ? "a.out" : options.OutputPath);
 		std::fstream OutputFile;
 		OutputFile.open(path, std::fstream::out | std::fstream::trunc);
 		OutputFile.close();

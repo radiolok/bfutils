@@ -68,10 +68,33 @@ void SetStatistic(bool mode){
      Statistic = mode;
 }
 
+//Set 16-bit word mode:
+bool Debug = false;
+
+void SetDebug(bool mode) {
+	Debug = mode;
+}
+
+bool getDebug(void) {
+	return Debug;
+}
+
 bool GetWordMode(void){
      return WordModeEnabled;
 }
 
+
+void debugOutput(size_t instrRetired, const char * cmd, uint16_t ip, uint16_t ap, uint16_t data)
+{
+	if (getDebug())
+	{
+		cerr << std::dec << instrRetired << ": IP: 0x" << setw(4) << std::hex << ip << " (" << cmd << ") "
+			<< " AP: 0x" << setw(4)  << std::hex << ap
+			<< " *AP: 0x"<< std::hex << data << std::endl;
+	
+	}
+	
+}
 
 uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 	uint8_t status = 0;
@@ -80,7 +103,7 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 	ADDRESS_TYPE AP = image.GetApEntry();
 
 	ADDRESS_TYPE AP_MAX =  image.GetSection(0).GetMemoryBase() + image.GetSection(0).GetMemorySize() ;
-	size_t i = 0;
+	size_t instrRetired = 0;
 
 	uint16_t JCC_MASK = GetWordMode() ? 0xFFFF : 0xFF;
 	uint16_t bias = 0;
@@ -91,58 +114,79 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 			bias |= 0xF000;
 		}
 		switch (MemoryPtr[IP] & 0xF000) {
+		case (CMD_NOP):
+			break;
 		case (CMD_IO):
 			if (bias & CMD_INPUT_MASK)
 			{
+
 				MemoryPtr[AP] = In() & 0xFF;
+				debugOutput(instrRetired, "getc", IP, AP, MemoryPtr[AP]);
 			}
 			else if (bias & CMD_OUTPUT_MASK)
 			{
 				Out(MemoryPtr[AP] & 0xFF);
+				debugOutput(instrRetired, "putc", IP, AP, MemoryPtr[AP]);
 			}
 			else if (bias & CMD_CTRLIO_CLR_DATA)
 			{
 				MemoryPtr[AP] = 0;
+				debugOutput(instrRetired, "clr.data", IP, AP, MemoryPtr[AP]);
 			}
 			break;
 		case (CMD_ADD):
 		case (CMD_SUB):
 			MemoryPtr[AP] += bias;
+			debugOutput(instrRetired, "ADD", IP, AP, MemoryPtr[AP]);
 			break;
 		case (CMD_RIGHT):
 		case (CMD_LEFT):
 			AP += bias;
+			debugOutput(instrRetired, "ADA", IP, AP, MemoryPtr[AP]);
 			break;
 
 		case (CMD_JZ):
 		case (CMD_JZ_DOWN):
 			IP = (MemoryPtr[AP] & JCC_MASK) ? IP : IP + bias;
+			debugOutput(instrRetired, "JZ", IP, AP, MemoryPtr[AP]);
 			break;
 		case (CMD_JNZ):
 		case (CMD_JNZ_DOWN):
 			IP = (MemoryPtr[AP] & JCC_MASK) ? IP + bias : IP;
+			debugOutput(instrRetired, "JNZ", IP, AP, MemoryPtr[AP]);
 			break;
 		default:
 			fprintf(stderr, "IP:0x04lx Unknown Opcode: 0x%04lx", IP, MemoryPtr[IP]);
 			break;
 		}
-		++i;
+		++instrRetired;
 		++IP;
 	} while (IP < AP_MAX);
 	
 	if (Statistic)
 	{
-		cerr << "\r\nIstructions_retired:" << i << "\r\n";
+		cerr << "\r\nIstructions_retired:" << instrRetired << "\r\n";
 	}
 	return status;
 }
 
 
+void help(int argc, char* argv[])
+{
+	cerr << "Usage:" << std::endl;
+	cerr << argv[0] << " -f binary file [-p -x -s]" << std::endl;
+	cerr << "\t-p - Enable protection mode [UNSUPPORTED]" << std::endl;
+	cerr << "\t-x - set 16-bit mode" << std::endl;
+	cerr << "\t-s - Enable instruction retired count" << std::endl;
+	cerr << "\t-d - enable debug output" << std::endl;
+	return;
+}
+
 int main(int argc, char *argv[]) {
 	int status = -1;
 	int c = 0;
 	char *filePath = NULL;
-	while((c = getopt(argc, argv, "f:pxs")) != -1){
+	while((c = getopt(argc, argv, "f:pxsd?h")) != -1){
 		switch(c)
 		{
 		case 'f':
@@ -150,15 +194,20 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'p':
 			SetProtectedMode(true);
-		break;
+			break;
 		case 'x':
 			SetWordMode(true);
-		break;
+			break;
 		case 's':
 			SetStatistic(true);
-		break;
+			break;
+		case 'd':
+			SetDebug(true);
+			break;
 		case '?':
-			return -1;
+		case 'h':
+			help(argc, argv);
+			return 0;
 			break;
 		}
 	}
