@@ -79,9 +79,22 @@ bool getDebug(void) {
 	return Debug;
 }
 
+//Set 16-bit word mode:
+bool Hex = false;
+
+void SetHex(bool mode) {
+	Hex = mode;
+}
+
+bool getHex(void) {
+	return Hex;
+}
+
 bool GetWordMode(void){
      return WordModeEnabled;
 }
+
+
 
 
 void debugOutput(size_t instrRetired, const char * cmd, uint16_t ip, uint16_t ap, uint16_t data)
@@ -170,6 +183,105 @@ uint8_t ExecCode(Image &image, uint16_t *MemoryPtr){
 	return status;
 }
 
+uint8_t ExecCode(uint16_t *CodePtr, uint16_t codeSize, uint16_t *MemoryPtr) {
+	uint8_t status = 0;
+
+	ADDRESS_TYPE IP = 0;
+	ADDRESS_TYPE AP = 0;
+
+	memcpy(MemoryPtr, CodePtr, codeSize * sizeof(uint16_t));
+
+
+	ADDRESS_TYPE AP_MAX = codeSize;
+	size_t instrRetired = 0;
+
+	uint16_t JCC_MASK = GetWordMode() ? 0xFFFF : 0xFF;
+	uint16_t bias = 0;
+	do {
+		++IP;
+		bias = (MemoryPtr[IP] & 0x1FFF);
+		if (MemoryPtr[IP] & (1 << 12))
+		{
+			bias |= 0xF000;
+		}
+		switch (MemoryPtr[IP] & 0xF000) {
+		case (CMD_NOP):
+			break;
+		case (CMD_IO):
+			if (bias & CMD_INPUT_MASK)
+			{
+
+				MemoryPtr[AP] = In() & 0xFF;
+				debugOutput(instrRetired, "getc", IP, AP, MemoryPtr[AP]);
+			}
+			else if (bias & CMD_OUTPUT_MASK)
+			{
+				Out(MemoryPtr[AP] & 0xFF);
+				debugOutput(instrRetired, "putc", IP, AP, MemoryPtr[AP]);
+			}
+			else if (bias & CMD_CTRLIO_CLR_DATA)
+			{
+				MemoryPtr[AP] = 0;
+				debugOutput(instrRetired, "clr.data", IP, AP, MemoryPtr[AP]);
+			}
+			else if (bias & CMD_CTRLIO_MODE8)
+			{
+				SetWordMode(false);
+				JCC_MASK = GetWordMode() ? 0xFFFF : 0xFF;
+				debugOutput(instrRetired, "CTRLIO.BIT8", IP, AP, MemoryPtr[AP]);
+			}
+			else if (bias & CMD_CTRLIO_MODE16)
+			{
+				SetWordMode(true);
+				JCC_MASK = GetWordMode() ? 0xFFFF : 0xFF;
+				debugOutput(instrRetired, "CTRLIO.BIT16", IP, AP, MemoryPtr[AP]);
+			}
+			else if (bias & CMD_CTRLIO_HALT)
+			{
+				debugOutput(instrRetired, "CTRLIO.HALT", IP, AP, MemoryPtr[AP]);
+				goto stop;
+			}
+			else if (bias & CMD_CTRLIO_PAUSE)
+			{
+				debugOutput(instrRetired, "CTRLIO.PAUSE", IP, AP, MemoryPtr[AP]);
+			}
+			break;
+		case (CMD_ADD):
+		case (CMD_SUB):
+			MemoryPtr[AP] += bias;
+			debugOutput(instrRetired, "ADD", IP, AP, MemoryPtr[AP]);
+			break;
+		case (CMD_RIGHT):
+		case (CMD_LEFT):
+			AP += bias;
+			debugOutput(instrRetired, "ADA", IP, AP, MemoryPtr[AP]);
+			break;
+
+		case (CMD_JZ):
+		case (CMD_JZ_DOWN):
+			IP = (MemoryPtr[AP] & JCC_MASK) ? IP : IP + bias;
+			debugOutput(instrRetired, "JZ", IP, AP, MemoryPtr[AP]);
+			break;
+		case (CMD_JNZ):
+		case (CMD_JNZ_DOWN):
+			IP = (MemoryPtr[AP] & JCC_MASK) ? IP + bias : IP;
+			debugOutput(instrRetired, "JNZ", IP, AP, MemoryPtr[AP]);
+			break;
+		default:
+			fprintf(stderr, "IP:0x04lx Unknown Opcode: 0x%04lx", IP, MemoryPtr[IP]);
+			break;
+		}
+		++instrRetired;
+
+	} while (IP < AP_MAX);
+stop:
+	if (Statistic)
+	{
+		cerr << "\r\nIstructions_retired:" << instrRetired << "\r\n";
+	}
+	return status;
+}
+
 
 void help(int argc, char* argv[])
 {
@@ -182,11 +294,30 @@ void help(int argc, char* argv[])
 	return;
 }
 
+uint16_t calcpi[] = {
+	0x0000, 0x0000, 0x4400, 0x2016, 0x4001, 0x2007, 0x6008, 0x4001, 0x2001, 0x5fff, 0x3fff,
+	0x4002, 0x2001, 0x5ffe, 0x9ff8, 0x6002, 0x3fff, 0x9ffe, 0x5fff, 0x6022, 0x4002,
+	0x6005, 0x4004, 0x2001, 0x5ffc, 0x3fff, 0x9ffb, 0x4004, 0x6008, 0x3fff, 0x5ffc,
+	0x2001, 0x5ffe, 0x3fff, 0x6004, 0x4006, 0x9ff8, 0x5ffa, 0x0000, 0x4006, 0x6009,
+	0x6005, 0x5ffa, 0x2001, 0x4006, 0x3fff, 0x9ffb, 0x5ffa, 0x8006, 0x0000, 0x5ffb,
+	0x2001, 0x5fff, 0x9fde, 0x0000, 0x400a, 0x2050, 0x1002, 0x2019, 0x1002, 0x3fd4,
+	0x1002, 0x5ff7, 0x2030, 0x1002, 0x4009, 0x3ff1, 0x1002,
+	0x5ff6, 0x3ffc, 0x1100, 0x6056, 0x3fff, 0x4001, 0x6002,
+	0x3fff, 0x9ffe, 0x4001, 0x6005, 0x3fff, 0x5fff, 0x200a, 0x4001, 0x9ffb, 0x4001,
+	0x6008, 0x4001, 0x2001, 0x5fff, 0x3fff, 0x4002, 0x2001, 0x5ffe, 0x9ff8, 0x4003,
+	0x6002, 0x3fff, 0x9ffe, 0x5ffb, 0x6022, 0x4004, 0x6005, 0x4006, 0x2001, 0x5ffa,
+	0x3fff, 0x9ffb, 0x4006, 0x6008, 0x3fff, 0x5ffa, 0x2001, 0x5ffc, 0x3fff, 0x6004,
+	0x400a, 0x9ff8, 0x5ff6, 0x0000, 0x400a, 0x6009, 0x6005, 0x5ff6, 0x2001, 0x400a,
+	0x3fff, 0x9ffb, 0x5ff6, 0x8006, 0x0000, 0x5ffb, 0x2001, 0x5ffb, 0x9fde, 0x0000,
+	0x4004, 0x6005, 0x5ffd, 0x2001, 0x4003, 0x3fff, 0x9ffb, 0x4001, 0x2030, 0x1002,
+	0x4001, 0x6002, 0x3fff, 0x9ffe, 0x5ffd, 0x6005, 0x5fff, 0x2001, 0x4001, 0x3fff,
+	0x9ffb, 0x5ffc, 0x9faa, 0x200a, 0x1002, 0x2003, 0x1002, 0x1800 };
+
 int main(int argc, char *argv[]) {
 	int status = -1;
 	int c = 0;
 	char *filePath = NULL;
-	while((c = getopt(argc, argv, "f:pxsd?h")) != -1){
+	while((c = getopt(argc, argv, "f:pxsd?hH")) != -1){
 		switch(c)
 		{
 		case 'f':
@@ -204,6 +335,9 @@ int main(int argc, char *argv[]) {
 		case 'd':
 			SetDebug(true);
 			break;
+		case 'H':
+			SetHex(true);
+			break;
 		case '?':
 		case 'h':
 			help(argc, argv);
@@ -211,19 +345,27 @@ int main(int argc, char *argv[]) {
 			break;
 		}
 	}
-	if (filePath == NULL){
+	/*if (filePath == NULL){
 		cout << "Fatal error: add input file"<< endl;
 		return -1;
-	}
+	}*/
 	uint16_t Memory[65536];
 	memset(&Memory,0,sizeof(Memory));
-	std::fstream File(filePath, std::fstream::in | std::fstream::binary);
+
+
+	status = ExecCode(calcpi, sizeof(calcpi)/sizeof(uint16_t), Memory);
+	if (status) {
+		cerr << "Code Execution Error, Status =" << status << endl;
+		return -1;
+	}
+
+	/*std::fstream File(filePath, std::fstream::in | std::fstream::binary);
 	if (!File.good()){
 		cerr << "Input file error, exiting"<<endl;
 		return -1;
 	}
 
-	Image image(File);
+	Image image(File, getHex());
 
 	LoadShared(image, Memory);
 
@@ -235,7 +377,7 @@ int main(int argc, char *argv[]) {
 	if (status){
 		cerr << "Code Execution Error, Status =" << status << endl;
 		return -1;
-	}
+	}*/
 
 	return 0;
 }

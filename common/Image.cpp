@@ -137,7 +137,7 @@ void Section::WriteData(std::fstream &File){
 }
 
 //This constructor will read image and load sections into their places
-Image::Image(std::fstream &File){
+Image::Image(std::fstream &File, bool hex){
 
 	err = false;
 	//Read BF header:

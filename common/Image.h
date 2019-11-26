@@ -50,6 +50,8 @@ class Section{
 		uint16_t GetFileSize(){return Hdr.FileSize;};
 		uint16_t GetMemorySize(){return Hdr.MemorySize;};
 
+		
+
 		void WriteHeader(std::fstream &File);
 		void WriteData(std::fstream &File);
 
@@ -68,7 +70,7 @@ class Section{
 class Image{
 
 	public:
-		Image(std::fstream &File);
+		Image(std::fstream &File, bool hex);
 		Image(uint8_t _machine);
 
 		~Image();
@@ -83,6 +85,8 @@ class Image{
 		ADDRESS_TYPE GetIpEntry(){return Hdr.IpEntry;};
 			
 		ADDRESS_TYPE GetApEntry(){return Hdr.ApEntry;};
+
+		bool ReadHex(std::fstream &File);
 		
 		void Write(std::fstream &File);
 
@@ -90,6 +94,7 @@ class Image{
 		bool Error(){return err;};
 	private:
 		
+		bool m_hex;
 		bool err;
 		BfHeader_t Hdr;
 		
