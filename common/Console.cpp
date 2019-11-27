@@ -40,7 +40,7 @@ size_t GetCharLength(uint8_t *str)
 }
 
 void Out(uint16_t val){
-		fprintf(stderr, "%c", val);
+		fprintf(stdout, "%c", val);
 }
 
 

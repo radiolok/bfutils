@@ -352,14 +352,7 @@ int main(int argc, char *argv[]) {
 	uint16_t Memory[65536];
 	memset(&Memory,0,sizeof(Memory));
 
-
-	status = ExecCode(calcpi, sizeof(calcpi)/sizeof(uint16_t), Memory);
-	if (status) {
-		cerr << "Code Execution Error, Status =" << status << endl;
-		return -1;
-	}
-
-	/*std::fstream File(filePath, std::fstream::in | std::fstream::binary);
+	std::fstream File(filePath, std::fstream::in | std::fstream::binary);
 	if (!File.good()){
 		cerr << "Input file error, exiting"<<endl;
 		return -1;
@@ -377,7 +370,7 @@ int main(int argc, char *argv[]) {
 	if (status){
 		cerr << "Code Execution Error, Status =" << status << endl;
 		return -1;
-	}*/
+	}
 
 	return 0;
 }
