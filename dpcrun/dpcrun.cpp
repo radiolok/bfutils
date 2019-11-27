@@ -45,51 +45,56 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
 using namespace std;
 
-class Counter 
+template <typename counterType> class Counter
 {
 public: 
-    Counter(uint32_t bottom, uint32_t top, uint32_t value = 0) : m_bottom(bottom), m_top(top), m_value(value)
+	Counter(counterType bottom, counterType top = 0, counterType value = 0) : m_bottom(bottom), m_top(top), m_value(value)
     {
-
     }
-    Counter& operator ++ ()
+
+	virtual Counter& operator ++ ()
     {
         m_value++;
-        if ((m_value >= m_top) || (m_value < m_bottom))
+        if ((m_top) && ((m_value >= m_top) || (m_value < m_bottom)))
         {
             m_value = m_bottom;
         }
         return *this;
     }
 
-    Counter& operator -- ()
+	virtual Counter& operator -- ()
     {
         m_value--;
-        if ((m_value >= m_top) || (m_value < m_bottom))
+		if ((m_top) && ((m_value >= m_top) || (m_value < m_bottom)))
         {
             m_value = m_top;
         }
         return *this;
     }
 
-    Counter operator++ (int)
+	virtual Counter operator++ (int)
     {
        Counter temp(m_bottom, m_top, m_value);
        return ++temp;
     }
 
-    Counter operator-- (int)
+	virtual Counter operator-- (int)
     {
        Counter temp(m_bottom, m_top, m_value);
        return --temp;
     }
 
-    uint32_t get()
+	virtual counterType pos()
     {
         return m_value;
     }
 
-    void set(uint32_t val)
+	virtual counterType size()
+	{
+		return m_top - m_bottom;
+	}
+
+	virtual void pos(counterType val)
     {
         if ((val >= m_bottom) && (val < m_top))
         {
@@ -97,89 +102,131 @@ public:
         }
     }
 
-    void reset()
+	virtual void reset()
     {
         m_value = m_bottom;
     }
 
 private:
-    uint32_t m_bottom;
-    uint32_t m_top;
-    uint32_t m_value;
+	counterType m_bottom;
+	counterType m_top;
+	counterType m_value;
 };
 
+template <typename MemType, typename countType> class Memory : public Counter<countType>
+{
+public:
+	Memory(countType bottom, countType top, MemType* data = NULL) : Counter<countType>(bottom, top)
+	{
+		m_memory = static_cast<MemType*>(calloc(sizeof(MemType)*(top - bottom), 1));
+		_ASSERT(m_memory);
+		if (data)
+		{
+			memcpy(m_memory, data, top - bottom);
+		}
+	}
 
+	virtual MemType& operator * ()
+	{
+		return m_memory[Counter::pos()];
+	}
+
+private:
+	MemType * m_memory;
+};
+
+int LoopLookup(Memory<char, size_t>& code, Counter<size_t> loopDepth, bool reverse = false)
+{
+	++loopDepth;
+	while (loopDepth.pos())
+	{
+		if (reverse)
+		{
+			--code;
+			if (*code == ']')
+			{
+				++loopDepth;
+			}
+			else if (*code == '[')
+			{
+				--loopDepth;
+			}
+		}
+		else
+		{
+			++code;
+			if (*code == ']')
+			{
+				--loopDepth;
+			}
+			else if (*code == '[')
+			{
+				++loopDepth;
+			}
+		}	
+	}
+	return 0;
+}
 
 int ExecCode(char* code, size_t size)
 {
-    Counter IpCount(0, size + 1);
-    Counter LoopDepthCount(0, 100);
-    Counter ApCount(0, 30000);
+    Memory <char, size_t> codeRAM(0, size + 1, code);
+	Memory <char, size_t> dataRAM(0, 30000);
 
-    char RAM[30000];
-    memset(RAM, 0, 30000);
-    Counter DataCell(0,256);
+	Counter <size_t> LoopDepthCount(0, 100);
+
+    Counter <uint8_t> DataCell();
 
     bool loopDetection = false;
 
-    while(IpCount.get() != size)
+    while(codeRAM.pos() != size)
     {
-        if (loopDetection == true)
-        {
-          switch (code[IpCount.get()])
-          {
-            case '[':
-
-              break;
-            case ']':
-              
-              break;
-          }
-          --IpCount;  
-        }
-        else
-        {//Regular execution
-            switch (code[IpCount.get()])
-            {
-                case '>':
-                    ++ApCount;
-                break;
-                case '<':
-                    ++ApCount;
-                    break;
-                case '+':
-                    DataCell.set(RAM[ApCount.get()]);
-                    ++DataCell;
-                    RAM[ApCount.get()] = DataCell.get();
-                    break;
-                case '-':
-                    DataCell.set(RAM[ApCount.get()]);
-                    --DataCell;
-                    RAM[ApCount.get()] = DataCell.get();
-                    break;
-                case '.':
-                    cout << RAM[ApCount.get()];
-                    break;
-                case ',':
-                    cin >> RAM[ApCount.get()];
-                    break;
-                case '[':
-                    break;
-                case ']':
-                    break;
-                default:
-                    //NOP
-                    break;   
-            }
-            ++IpCount;
-
-        }
-        
-       
+		switch (*codeRAM)
+		{
+		case '>':
+			++dataRAM;
+			break;
+		case '<':
+			--dataRAM;
+			break;
+		case '+':
+			++(*dataRAM);
+			break;
+		case '-':
+			--(*dataRAM);
+			break;
+		case '.':
+			cout << *dataRAM;
+			break;
+		case ',':
+			cin >> *dataRAM;
+			break;
+		case '[':
+			if (!(*dataRAM))
+			{
+				LoopLookup(codeRAM, LoopDepthCount);
+			}
+			break;
+		case ']':
+			if (*dataRAM)
+			{
+				LoopLookup(codeRAM, LoopDepthCount, true);
+			}
+			break;
+		default:
+			//NOP
+			break;
+		}
+		++codeRAM;
     }
     return 0;
 }
 
+std::ifstream::pos_type filesize(const char* filename)
+{
+	std::ifstream in(filename, std::ifstream::ate | std::ifstream::binary);
+	return in.tellg();
+}
 
 int main(int argc, char **argv)
 {
@@ -195,26 +242,29 @@ int main(int argc, char **argv)
 		}
 	}
 
-	std::fstream file(filePath, std::fstream::in | std::fstream::binary);
-	if (!file.good()){
+	std::ifstream file;
+	file.open(filePath, std::fstream::binary || std::fstream::ate);
+	if (!file.is_open()){
 		cerr << "Input file error, exiting"<<endl;
 		return -1;
 	}
-  
-  std::streamsize size = file.tellg();
-  file.seekg(0, std::ios::beg);
 
-  std::vector<char> buffer(size);
-  if (file.read(buffer.data(), size))
-  {
-        /* worked! */
-  }
+	  std::streamsize size = filesize(filePath);
+	  if (size == 0)
+	  {
+		  cerr << "Input file " << filePath << " empty, exiting" << endl;
+		  return -1;
+	  }
 
-	status = ExecCode(&buffer[0], size);
-	if (status){
-		cerr << "Code Execution Error, Status =" << status << endl;
-		return -1;
-	}
+	  file.seekg(0, std::ios::beg);
 
+	  std::vector<char> buffer(size);
+	  file.read(buffer.data(), size);
+
+	  status = ExecCode(&buffer.front(), size);
+	  if (status) {
+		  cerr << "Code Execution Error, Status =" << status << endl;
+		  return -1;
+	  }
 	return 0;
 }
