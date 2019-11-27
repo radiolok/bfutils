@@ -48,7 +48,7 @@ using namespace std;
 class Counter 
 {
 public: 
-    Counter(uint32_t bottom, uint32_t top) : m_bottom(bottom), m_top(top), m_value(0)
+    Counter(uint32_t bottom, uint32_t top, uint32_t value = 0) : m_bottom(bottom), m_top(top), m_value(value)
     {
 
     }
@@ -70,6 +70,18 @@ public:
             m_value = m_top;
         }
         return *this;
+    }
+
+    Counter operator++ (int)
+    {
+       Counter temp(m_bottom, m_top, m_value);
+       return ++temp;
+    }
+
+    Counter operator-- (int)
+    {
+       Counter temp(m_bottom, m_top, m_value);
+       return --temp;
     }
 
     uint32_t get()
@@ -133,7 +145,7 @@ int ExecCode(char* code, size_t size)
                     break;
                 case '-':
                     DataCell.set(RAM[ApCount.get()]);
-                    ++DataCell;
+                    --DataCell;
                     RAM[ApCount.get()] = DataCell.get();
                     break;
                 case '.':
