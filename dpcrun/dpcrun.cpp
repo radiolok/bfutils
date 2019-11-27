@@ -119,7 +119,6 @@ public:
 	Memory(countType bottom, countType top, MemType* data = NULL) : Counter<countType>(bottom, top)
 	{
 		m_memory = static_cast<MemType*>(calloc(sizeof(MemType)*(top - bottom), 1));
-		_ASSERT(m_memory);
 		if (data)
 		{
 			memcpy(m_memory, data, top - bottom);
@@ -128,7 +127,7 @@ public:
 
 	virtual MemType& operator * ()
 	{
-		return m_memory[Counter::pos()];
+		return m_memory[this->pos()];
 	}
 
 private:
@@ -242,8 +241,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	std::ifstream file;
-	file.open(filePath, std::fstream::binary || std::fstream::ate);
+	std::ifstream file(filePath, std::ifstream::ate | std::ifstream::binary);
 	if (!file.is_open()){
 		cerr << "Input file error, exiting"<<endl;
 		return -1;
