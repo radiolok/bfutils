@@ -126,7 +126,16 @@ int ExecCode(char* code, size_t size)
     {
         if (loopDetection == true)
         {
+          switch (code[IpCount.get()])
+          {
+            case '[':
 
+              break;
+            case ']':
+              
+              break;
+          }
+          --IpCount;  
         }
         else
         {//Regular execution
@@ -155,23 +164,57 @@ int ExecCode(char* code, size_t size)
                     cin >> RAM[ApCount.get()];
                     break;
                 case '[':
-                    ++LoopDepthCount;
                     break;
                 case ']':
-                    ++LoopDepthCount;
                     break;
                 default:
                     //NOP
                     break;   
             }
+            ++IpCount;
+
         }
         
        
     }
+    return 0;
 }
 
 
 int main(int argc, char **argv)
 {
- return 0;
+	int status = -1;
+	int c = 0;
+	char *filePath = NULL;
+	while((c = getopt(argc, argv, "f:")) != -1){
+		switch(c)
+		{
+		case 'f':
+			filePath = optarg;
+			break;
+		}
+	}
+
+	std::fstream file(filePath, std::fstream::in | std::fstream::binary);
+	if (!file.good()){
+		cerr << "Input file error, exiting"<<endl;
+		return -1;
+	}
+  
+  std::streamsize size = file.tellg();
+  file.seekg(0, std::ios::beg);
+
+  std::vector<char> buffer(size);
+  if (file.read(buffer.data(), size))
+  {
+        /* worked! */
+  }
+
+	status = ExecCode(&buffer[0], size);
+	if (status){
+		cerr << "Code Execution Error, Status =" << status << endl;
+		return -1;
+	}
+
+	return 0;
 }
