@@ -12,3 +12,7 @@ before_script:
   - cmake ..
 
 script: make
+   
+after_install:
+  - cd ../
+  - bash test/test.sh
