@@ -13,6 +13,6 @@ before_script:
 
 script: make
    
-after_install:
+after_script:
   - cd ../
   - bash test/test.sh
