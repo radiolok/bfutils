@@ -52,7 +52,7 @@ public:
     {
 
     }
-    Counter& operator++()
+    Counter& operator ++ ()
     {
         m_value++;
         if ((m_value >= m_top) || (m_value < m_bottom))
@@ -62,7 +62,7 @@ public:
         return *this;
     }
 
-    Counter& operator--()
+    Counter& operator -- ()
     {
         m_value--;
         if ((m_value >= m_top) || (m_value < m_bottom))
@@ -121,19 +121,19 @@ int ExecCode(char* code, size_t size)
             switch (code[IpCount.get()])
             {
                 case '>':
-                    ApCount++;
+                    ++ApCount;
                 break;
                 case '<':
-                    ApCount--;
+                    ++ApCount;
                     break;
                 case '+':
                     DataCell.set(RAM[ApCount.get()]);
-                    DataCell++;
+                    ++DataCell;
                     RAM[ApCount.get()] = DataCell.get();
                     break;
                 case '-':
                     DataCell.set(RAM[ApCount.get()]);
-                    DataCell--;
+                    ++DataCell;
                     RAM[ApCount.get()] = DataCell.get();
                     break;
                 case '.':
@@ -143,10 +143,10 @@ int ExecCode(char* code, size_t size)
                     cin >> RAM[ApCount.get()];
                     break;
                 case '[':
-                    LoopDepthCount++;
+                    ++LoopDepthCount;
                     break;
                 case ']':
-                    LoopDepthCount--;
+                    ++LoopDepthCount;
                     break;
                 default:
                     //NOP
@@ -156,4 +156,10 @@ int ExecCode(char* code, size_t size)
         
        
     }
+}
+
+
+int main(int argc, char **argv)
+{
+ return 0;
 }
