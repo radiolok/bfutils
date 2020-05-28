@@ -7,10 +7,10 @@ Brainfuck programmig tools for Von-Neumann extended brainfuck computer.
 
 Shared address space, 64 KWords * 16 bit each Word
 
-# bfpp
+## bfpp
 
 Brainfuck compiler. Usage:
-```
+```Shell
 bfpp -i source_file [-o output_file] [-e] [-s [-d]]
 -i - path to brainfuck source file
 -o - path to output file. By default: a.out for binary, a.asm for text
@@ -18,7 +18,7 @@ bfpp -i source_file [-o output_file] [-e] [-s [-d]]
 -s - save binary as text
 -d - add debug symbols into text output
 ```
-# bfrun
+## bfrun
 Brainfuck emulator. Usage:
 ```
 bfrun -f BF_binary [-p -x]
@@ -26,13 +26,13 @@ bfrun -f BF_binary [-p -x]
 -s - switch emulator to 16 bit mode. By default 8-bit classic mode.
 ```
 
-# Binary
+## Binary
 
 It is a binary Big-Endian uint16_t file which contain BfHeader and two sections - code section and data section. 
 
-# BF Header
+## BF Header
 
-```
+```C
 uint16_t Magic = "BF";
 uint16_t ImageBase;//Address Of Image Started
 struct{
@@ -45,11 +45,11 @@ struct{
 }Data;
 ```
 
-# bfutils building using cmake
+## bfutils building using cmake
 
 Currently bfutils doesn't require any external libraries. Just clone repo and build it with CMake:
 
-```
+```Shell
 git clone https://github.com/radiolok/bfutils.git
 mkdir bfutils/build
 cd bfutils/build
