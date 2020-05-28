@@ -1,3 +1,4 @@
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/f55ad01946e844b7b67c18794ad295c0)](https://app.codacy.com/manual/radiolok/bfutils?utm_source=github.com&utm_medium=referral&utm_content=radiolok/bfutils&utm_campaign=Badge_Grade_Dashboard)
 [![Build Status](https://travis-ci.org/radiolok/bfutils.svg?branch=master)](https://travis-ci.org/radiolok/bfutils)
 
 # Brainfuck utils
