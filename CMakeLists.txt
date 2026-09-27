@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.10)
 
 cmake_policy(SET CMP0015 NEW)
 project (bfutils)
@@ -22,6 +22,8 @@ set (PROJECT_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/common)
 
 include_directories("${PROJECT_INCLUDE_DIR}")
 include_directories("${PROJECT_SOURCE_DIR}")
+
+enable_testing()
 
 add_subdirectory(dpcrun)
 add_subdirectory(bfpp)

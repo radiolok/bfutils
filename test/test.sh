@@ -15,8 +15,8 @@ $path/bin/bfpp -i "$path/common/pi.bfk" -o "$path/pi.out" || exit 1
 $path/bin/bfrun -f "$path/pi.out" | grep -q '3.141' || exit 1
 
 #check dpcrun:
-$path/bin/dpcrun -f "$path/common/helloworld.bfk" | grep -q 'Hello World!' || exit 1
+$path/bin/dpcrun -f "$path/common/helloworld.bfk" 2>&1 | grep -q 'Hello World!' || exit 1
 
-$path/bin/dpcrun -f "$path/common/pi.bfk" | grep -q '3.141' || exit 1
+$path/bin/dpcrun -f "$path/common/pi.bfk" 2>&1 | grep -q '3.141' || exit 1
 exit 0
 
