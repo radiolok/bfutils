@@ -11,12 +11,12 @@ C++ tools for two home-built Brainfuck computers:
 |---|---|---|
 | [bfpp](#bfpp--compiler) | working | Compiles Brainfuck source into a BrainfuckPC image (binary, text listing or C array) |
 | [bfrun](#bfrun--brainfuckpc-emulator) | working | Runs a BrainfuckPC binary image |
-| [dpcrun](#dpcrun--dekatronpc-model) | working | Interprets Brainfuck source with DekatronPC semantics; also used as a library |
+| [dpcrun](#dpcrun--dekatronpc-model) | working | DekatronPC golden model: full ISA (Debug + Brainfuck), MemLock, SOT/EOT, resets; also used as a library |
 | bfloader | stub | Meant to upload images over RS-232 (`-p port -i file -f`). Right now it only parses the arguments |
 
 ## Building
 
-The tools need only a C++11 compiler and CMake 3.1+:
+The tools need only a C++11 compiler and CMake 3.10+:
 
 ```Shell
 git clone https://github.com/radiolok/bfutils.git
@@ -28,13 +28,16 @@ make
 
 The executables end up in `bin/` and the intermediate files in `build/` (both are git-ignored).
 
-Run the integration test from the repository root after building:
+Run the tests from the repository root after building:
 
 ```Shell
-bash test/test.sh
+ctest --test-dir build --output-on-failure   # dpcrun unit tests
+bash test/test.sh                            # integration test
 ```
 
-The test compiles `helloworld.bfk` and `pi.bfk` with `bfpp`, runs them with `bfrun`, and runs the same sources with `dpcrun`. It checks for `Hello World!` and `3.141` in the output.
+The unit tests (`dpcrun/test/test_dpcrun.cpp`) cover the dpcrun model instruction by instruction. The integration test compiles `helloworld.bfk` and `pi.bfk` with `bfpp`, runs them with `bfrun`, and runs the same sources with `dpcrun`. It checks for `Hello World!` and `3.141` in the output.
+
+GitHub Actions (`.github/workflows/ci.yml`) builds with gcc and clang and runs both.
 
 ## bfpp — compiler
 
@@ -144,21 +147,26 @@ bfrun -f image.out [-x] [-s] [-d]
 ## dpcrun — DekatronPC model
 
 ```
-dpcrun -f source.bf
+dpcrun -f source.bfk [-b boot.bfk] [-B] [-a 99999] [-n max] [-s]
 ```
 
-Unlike `bfrun`, `dpcrun` reads **Brainfuck source directly**; no `bfpp` step is needed. It follows DekatronPC's model:
-- 30000 data cells of 8 bits each.
-- A loop counter with a range of 0–999. It counts nesting depth while the model searches for a matching bracket.
-- The character `0` is accepted as "clear cell".
+`dpcrun` is the instruction-level golden model of DekatronPC. It mirrors the current RTL (`MachineCtrl`, `IpLine`, `ApLine`), including the places where the RTL and the DekatronPC requirements (TRS) still disagree; those are marked `RTL:` in the source.
 
-Program output goes to **stderr**, so it doesn't mix with a testbench log. At the end the model prints `IRET:<instructions retired>` to stdout.
+What it models:
+- **Program memory**: 100 000 4-bit opcodes (never ASCII). Addresses 99900–99999 are the write-protected bootloader ROM.
+- **Both ISAs**: decoding is on `{mode, opcode}`; all 32 combinations are covered. Hard Reset starts in Debug ISA at 99900, Soft Reset in Brainfuck ISA at 0.
+- **Counters**: IP 0–99999, AP 0–29999 (or up to 99999 with `-a`), data 0–255, loop nesting 0–999. A loop scan stops *on* the matching bracket, which is then executed; nesting past 999 is a hardware error that halts the machine.
+- **MemLock**: the data counter holds the cell during `+`/`-`, is flushed on `>`/`<`/`CLRA`/`CLRML`, and the cell is only read when its value is needed (lazy read). `memReads()`/`memWrites()` count the data memory accesses.
+- **Program loading**: `SOT` switches to loading, opcodes are written from the next address, `EOT` ends it (Soft Reset or halt).
 
-It can also be used as a **library**. `dpcrun/dpcrun.h` provides:
-- `CppMachine`: holds the code memory, the data memory, the loop counter, and the `IRET`/`CLK_UNHALTED` counters.
-- `stepCpp()`: executes one instruction.
+The command line turns source text into opcodes with the same symbol table as DekatronPC's `generate_rom.py` (`+-<>[].,` plus `N H 0 M G P D B` and the Debug symbols `E S { } L I A R r`), puts the program at 0 followed by HALT, and runs it after a Soft Reset. `-b` loads a bootloader into the ROM, `-B` starts from Hard Reset instead, `-s` traces every instruction to stderr. Program output goes to stdout, followed by `IRET`, the memory access counts and the final status.
 
-The standalone `main()` is compiled only with `-DEXEC`, which CMake sets for the `dpcrun` target. The DekatronPC Verilator testbench (`rtl/tests/DekatronPC.sv/DekatronPC_tb.cpp` in the dekatronpc repo) builds `dpcrun.cpp` without `EXEC`. It calls `stepCpp()` after every instruction the RTL retires and compares IP, AP, the data value and the loop counter.
+It is also a **library** (`dpcmodel` in CMake). `dpcrun/dpcrun.h` provides:
+- `dpc::Machine`: the machine. `loadCode()`, `setBootRom()`, `hardReset()`, `softReset()`, `run()`, `step()`, plus getters for every counter and flag. `txData()` is exactly what the RTL drives on `tx_data_bcd`.
+- `dpc::Config`: the panel switches (`runOnHardRst`, `softRstOnEot`, `echoMode`, …) and the AP limit.
+- `dpc::assemble()`, `opcodeToSymbol()`, `mnemonic()`: the loader and printing helpers.
+
+The standalone `main()` is compiled only with `-DEXEC`. The DekatronPC Verilator testbench (`rtl/tests/DekatronPC.sv/DekatronPC_tb.cpp` in the dekatronpc repo) builds `dpcrun.cpp` without `EXEC`, calls `step()` after every instruction the RTL retires, and compares IRET, IP, AP, `tx_data_bcd`, the loop counter and the terminal output.
 
 ## Sample programs
 
@@ -175,9 +183,8 @@ These are in `common/`:
 - **`-O1` drops the prologue and HALT:** the leading NOP and trailing HALT are lost, and the compiler prints `Invalid opcode` warnings for them.
 - **`-d` listing warnings:** NOP and HALT have no pseudo-code text, so the listing prints `Unknown Opcode` for them.
 - **HALT is ignored:** `bfrun` doesn't act on HALT (`0x1800`) when running an image; it stops only at the end of the code section.
-- **Unused flags:** `bfrun -H` and `dpcrun -s` are parsed but do nothing.
+- **Unused flag:** `bfrun -H` is parsed but does nothing.
 - **Section pad byte:** the pad byte in section headers isn't initialised.
-- **Dead CI:** `.travis.yml` is left over from Travis CI (travis-ci.org), which no longer runs.
 
 ## License
 
