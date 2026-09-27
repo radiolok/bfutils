@@ -15,6 +15,7 @@ include_directories(${COMMON_LIB})
 
 set (SOURCES 
         dpcrun.cpp 
+        dpcrun.h 
         ${COMMON_LIB}/Command.cpp 
         ${COMMON_LIB}/Command.h 
         ${COMMON_LIB}/Console.cpp 
@@ -37,3 +38,7 @@ ENDIF()
 add_executable(dpcrun 
     ${SOURCES}
 )
+
+# dpcrun.cpp is also linked as a library into the DekatronPC Verilator testbench;
+# main() is only built for the standalone executable.
+target_compile_definitions(dpcrun PRIVATE EXEC)
