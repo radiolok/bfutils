@@ -177,6 +177,8 @@ These are in `common/`:
 - `fractal.bfk`
 - `ctrlio_data_clr.bfk`: exercises `[-]`, which becomes clr.data with `-O1`.
 
+[`programs/bf100/`](programs/bf100) holds **Brainfuck-100**: 100 real-world programs from GitHub sorted by category, with inputs, per-program metrics and source/license notes. It was used to size the DekatronPC counters.
+
 ## Known issues
 
 - **Wrong AP prologue:** `bfpp` means to add `AP += 0xFF00`, but the value doesn't fit in the 13-bit field and is encoded as `AP -= 256` (`0x5F00`). The `-d` listing still prints `AP += 256`.
