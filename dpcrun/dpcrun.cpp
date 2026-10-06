@@ -373,28 +373,37 @@ Status Machine::fetch()
 // Loop scan. The counter takes +1 for the starting bracket, +1 for every
 // bracket of the same kind, -1 for every matching one. The scan stops ON
 // the matching bracket, which is then decoded as an ordinary instruction.
-// Incrementing past 999 is the hardware error of REQ-CNT-007: the scan is
-// aborted and the machine halts.
+// Incrementing past 99 is the hardware error of REQ-CNT-007: the scan is
+// aborted and the machine halts. As in the RTL (IpLine, at_top of the loop
+// counter) the overflow is caught BEFORE the step: the increment is not
+// issued and the counter stays at 99 until CLRL or a reset. A scan that
+// starts with the counter already at 99 overflows at once.
 //
 // The scan always ends. Program memory is a ring: if the brackets in it are
 // balanced or short of own ones, the count reaches zero within one turn;
 // otherwise every turn adds the starting bracket again and the count climbs
-// to the overflow (about 10^8 reads for a lone bracket).
+// to the overflow (about 10^7 reads for a lone bracket).
 Status Machine::scan(bool backward)
 {
     const uint8_t own = backward ? BF_LEND : BF_LBEG;
 
-    m_loop = wrapInc(m_loop, LOOP_SIZE);
-    while (m_loop != 0) {
-        m_ip   = backward ? wrapDec(m_ip, IP_SIZE) : wrapInc(m_ip, IP_SIZE);
-        m_insn = readCode(m_ip);
-        if (m_insn == own) {
-            m_loop = wrapInc(m_loop, LOOP_SIZE);
-        }
-        else if (m_insn == BF_LBEG || m_insn == BF_LEND) {
-            m_loop = wrapDec(m_loop, LOOP_SIZE);
-            if (m_loop == 0)
-                return Status::Ok;   // matching bracket, stand on it
+    const uint32_t LOOP_TOP = LOOP_SIZE - 1;
+
+    if (m_loop != LOOP_TOP) {
+        ++m_loop;
+        for (;;) {
+            m_ip   = backward ? wrapDec(m_ip, IP_SIZE) : wrapInc(m_ip, IP_SIZE);
+            m_insn = readCode(m_ip);
+            if (m_insn == own) {
+                if (m_loop == LOOP_TOP)
+                    break;               // overflow, stand on this bracket
+                ++m_loop;
+            }
+            else if (m_insn == BF_LBEG || m_insn == BF_LEND) {
+                --m_loop;
+                if (m_loop == 0)
+                    return Status::Ok;   // matching bracket, stand on it
+            }
         }
     }
 
@@ -695,7 +704,7 @@ int main(int argc, char** argv)
     for (uint64_t i = 0; i < maxSteps; ++i) {
         s = m.step();
         if (trace) {
-            fprintf(stderr, "IRET:%llu IP:%05u %-5s LOOP:%03u AP:%05u DATA:%3u ML:%d %s\n",
+            fprintf(stderr, "IRET:%llu IP:%05u %-5s LOOP:%02u AP:%05u DATA:%3u ML:%d %s\n",
                     static_cast<unsigned long long>(m.iret()), m.ip(),
                     dpc::mnemonic(m.insn(), m.insnMode()), m.loopCount(), m.ap(),
                     m.txData(), m.memLock(), dpc::statusName(s));

@@ -33,7 +33,7 @@ namespace dpc {
 const uint32_t IP_SIZE    = 100000;   // 5 dekatrons: 0..99999
 const uint32_t BOOT_BASE  = 99900;    // bootloader ROM, one 10x10 bank
 const uint32_t BOOT_SIZE  = 100;
-const uint32_t LOOP_SIZE  = 1000;     // 3 dekatrons: 0..999
+const uint32_t LOOP_SIZE  = 100;      // 2 dekatrons: 0..99 (LOOP_DEKATRON_NUM)
 const uint32_t DATA_TOP   = 255;      // 3 dekatrons, TOP_LIMIT_MODE
 const uint32_t AP_TOP_BF  = 29999;    // OPEN-001: 29999 or 99999
 

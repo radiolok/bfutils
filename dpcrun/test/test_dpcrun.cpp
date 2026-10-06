@@ -500,35 +500,57 @@ TEST(debug_loops_test_ap)
     CHECK_EQ(m.ap(), 0u);               // second loop ran AP down to 0
 }
 
-TEST(loop_depth_999_ok)
+TEST(loop_depth_99_ok)
 {
-    std::string src = std::string(999, '[') + std::string(999, ']') + "H";
+    std::string src = std::string(99, '[') + std::string(99, ']') + "H";
     Machine m = bfMachine(src);
     CHECK(m.runUntilHalt() == Status::Halted);
     CHECK(!m.loopOverflow());
-    CHECK_EQ(m.ip(), 1999u);
+    CHECK_EQ(m.loopCount(), 0u);
+    CHECK_EQ(m.ip(), 199u);
 }
 
 TEST(loop_overflow_halts)
 {
-    // REQ-CNT-007: the 1000th level overflows; scan aborted, machine halts
+    // REQ-CNT-007: the 100th level overflows; caught before the step, the
+    // scan is aborted and the machine halts
     Config cfg;
     cfg.bellOnError = true;
-    std::string src = std::string(1000, '[') + std::string(1000, ']') + "H";
+    std::string src = std::string(100, '[') + std::string(100, ']') + "H";
     Machine m = bfMachine(src, cfg);
     CHECK(m.step() == Status::Ok);
     CHECK(m.step() == Status::Halted);
     CHECK(m.loopOverflow());
-    CHECK_EQ(m.loopCount(), 0u);        // 999 + 1 wrapped
+    CHECK_EQ(m.loopCount(), 99u);       // the increment is not issued
     CHECK_EQ(m.bells(), 1u);
-    CHECK_EQ(m.ip(), 1000u);            // stopped at 999, halt step +1
+    CHECK_EQ(m.ip(), 100u);             // stopped at 99, halt step +1
     CHECK_EQ(m.iret(), 1u);
+}
+
+TEST(loop_overflow_sticks_at_top)
+{
+    // After an overflow the counter stays at 99: the next scan overflows at
+    // once on its own bracket, without moving IP
+    Config cfg;
+    cfg.bellOnError = true;
+    std::string src = std::string(100, '[') + std::string(100, ']') + "H";
+    Machine m = bfMachine(src, cfg);
+    m.runUntilHalt();
+    CHECK(m.loopOverflow());
+    CHECK_EQ(m.loopCount(), 99u);
+    CHECK_EQ(m.ip(), 100u);
+    m.loadCode(assemble("[]"), m.ip());  // a fresh, balanced scan with loop = 99
+    m.run();
+    CHECK(m.runUntilHalt() == Status::Halted);
+    CHECK_EQ(m.bells(), 2u);             // the second overflow fired
+    CHECK_EQ(m.loopCount(), 99u);
+    CHECK_EQ(m.ip(), 101u);              // stood on its own [, halt step +1
 }
 
 TEST(clrl_clears_loop_and_error)
 {
     // REQ-ISA-DEBUG-006
-    std::string src = std::string(1000, '[') + std::string(1000, ']');
+    std::string src = std::string(100, '[') + std::string(100, ']');
     Machine m = bfMachine(src);
     m.runUntilHalt();
     CHECK(m.loopOverflow());
