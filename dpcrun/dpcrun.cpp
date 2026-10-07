@@ -407,8 +407,7 @@ Status Machine::scan(bool backward)
         }
     }
 
-    // RTL: MachineCtrl sets state <= S_HALT here, but the S_FETCH_W branch
-    // of the same always_ff can override it; see the golden-model report.
+    // MachineCtrl halts on the rising edge of loop_overflow (REQ-CTLV2-005)
     m_overflow = true;
     if (m_cfg.bellOnError)
         bell();
@@ -514,12 +513,16 @@ void Machine::decode()
     case 0x14: case 0x15: apMove(false, m_insn & 1); break;      // > <
 
     case 0x18:                                  // COUT
-        // RTL: MachineCtrl raises tx_vld without issuing AP_COUT, so after
-        // an AP move tx_data_bcd still shows the previous cell. The model
-        // does what ApLine's OP_COUT is there for: read if needed.
-        if (!m_lock && !m_memHere)
-            memRead();
-        cout(txData());
+        // MachineCtrl issues AP_COUT, then tx_vld. Output is always the
+        // data counter: without MemLock ApLine loads the cell into it
+        // first (reading it if the memory register is elsewhere). MemLock
+        // and dirty are unchanged, as with LOAD (OPEN-017).
+        if (!m_lock) {
+            if (!m_memHere)
+                memRead();
+            m_data = m_memReg;
+        }
+        cout(m_data);
         break;
 
     case 0x19:                                  // CIN

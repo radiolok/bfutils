@@ -170,10 +170,10 @@ public:
     uint32_t ap() const          { return m_ap; }
     uint32_t loopCount() const   { return m_loop; }
     uint8_t  dataCounter() const { return m_data; }
-    // What DekatronPC drives on tx_data_bcd: the data counter while
-    // MemLock is set, otherwise the memory output register. After an AP
-    // move that register still holds the previous cell (lazy read).
-    uint8_t  txData() const      { return m_lock ? m_data : m_memReg; }
+    // What DekatronPC drives on tx_data_bcd: always the data counter.
+    // COUT loads the cell into it first when MemLock is off (OPEN-017);
+    // between instructions it may hold a value of another cell.
+    uint8_t  txData() const      { return m_data; }
     // Architectural value of the current cell.
     uint8_t  cellValue() const   { return m_lock ? m_data : m_dataMem[m_ap]; }
     bool     memLock() const     { return m_lock; }

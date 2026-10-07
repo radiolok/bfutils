@@ -332,14 +332,38 @@ TEST(lazy_read_pointer_moves_do_not_touch_memory)
     CHECK_EQ(m.ap(), 3u);
 }
 
-TEST(tx_register_is_stale_after_move)
+TEST(tx_shows_counter_after_move)
 {
-    // tx_data_bcd shows the memory register, which still holds the last
-    // touched cell until the new one is read
+    // tx_data_bcd is always the data counter; after a move it still holds
+    // the previous cell until COUT (or +, LOAD) loads the new one
     Machine m = bfMachine("+++>");
     steps(m, 4);
     CHECK_EQ(m.txData(), 3u);
     CHECK_EQ(m.cellValue(), 0u);
+}
+
+TEST(cout_loads_cell_into_counter)
+{
+    // OPEN-017: without MemLock COUT loads the cell into the counter,
+    // reading it only if the memory register is on another cell; MemLock
+    // and dirty stay as they were
+    Machine m = bfMachine("+.>.<..");
+    m.setCell(0, 64);
+    m.setCell(1, 'B');
+    steps(m, 3);                        // + . >  (flush of 'A')
+    CHECK(!m.memLock());
+    uint64_t r0 = m.memReads();
+    steps(m, 1);                        // . at cell 1: read, load
+    CHECK_EQ(m.memReads(), r0 + 1);
+    CHECK_EQ(m.txData(), uint32_t('B'));
+    CHECK(!m.memLock());
+    CHECK(!m.dirty());
+    steps(m, 2);                        // < .  : read cell 0 again
+    CHECK_EQ(m.memReads(), r0 + 2);
+    CHECK_EQ(m.txData(), uint32_t('A'));
+    steps(m, 1);                        // . : register on the cell, no read
+    CHECK_EQ(m.memReads(), r0 + 2);
+    CHECK(m.output() == "ABAA");
 }
 
 TEST(clrd_sets_memlock)
