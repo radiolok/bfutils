@@ -175,13 +175,12 @@ TEST(soft_reset_state)
     CHECK(!m.halted());         // RunOnSoftRst = 1
 }
 
-TEST(reset_drops_dirty_counter)
+TEST(reset_drops_locked_counter)
 {
     // The data counter is not written back on reset; memory is retained
     Machine m = bfMachine("+>+++");
     steps(m, 5);
     CHECK(m.memLock());
-    CHECK(m.dirty());
     m.softReset();
     CHECK_EQ(m.cell(0), 1u);    // flushed by '>'
     CHECK_EQ(m.cell(1), 0u);    // 3 was only in the counter
@@ -301,7 +300,6 @@ TEST(memlock_taken_before_first_step)
     m.setCell(0, 10);
     steps(m, 4);
     CHECK(m.memLock());
-    CHECK(m.dirty());
     CHECK_EQ(m.dataCounter(), 12u);
     CHECK_EQ(m.cell(0), 10u);   // not written back yet
     CHECK_EQ(m.cellValue(), 12u);
@@ -309,7 +307,7 @@ TEST(memlock_taken_before_first_step)
     CHECK_EQ(m.memWrites(), 0u);
 }
 
-TEST(ap_move_flushes_dirty_counter)
+TEST(ap_move_flushes_locked_counter)
 {
     // REQ-ML-005: the counter goes into the OLD cell before AP steps
     Machine m = bfMachine("++>+<");
@@ -346,7 +344,7 @@ TEST(cout_loads_cell_into_counter)
 {
     // OPEN-017: without MemLock COUT loads the cell into the counter,
     // reading it only if the memory register is on another cell; MemLock
-    // and dirty stay as they were
+    // stays as it was
     Machine m = bfMachine("+.>.<..");
     m.setCell(0, 64);
     m.setCell(1, 'B');
@@ -357,7 +355,6 @@ TEST(cout_loads_cell_into_counter)
     CHECK_EQ(m.memReads(), r0 + 1);
     CHECK_EQ(m.txData(), uint32_t('B'));
     CHECK(!m.memLock());
-    CHECK(!m.dirty());
     steps(m, 2);                        // < .  : read cell 0 again
     CHECK_EQ(m.memReads(), r0 + 2);
     CHECK_EQ(m.txData(), uint32_t('A'));
@@ -402,19 +399,20 @@ TEST(store_copies_counter)
     CHECK(!m.memLock());
 }
 
-TEST(store_keeps_lock_across_move)
+TEST(store_keeps_lock_until_move)
 {
-    // RTL: STORE clears dirty but not MemLock, and > flushes (and unlocks)
-    // only a dirty counter. So the lock survives and the counter stands
-    // for the new cell. TRS REQ-ML-005 expects the lock to be released.
+    // STORE writes but keeps MemLock; > then flushes again and unlocks
+    // (REQ-ML-005): MemLock is the only flag, so the write is repeated
     Machine m = bfMachine("+++++P>");
-    steps(m, 7);
+    steps(m, 6);
     CHECK_EQ(m.cell(0), 5u);
     CHECK(m.memLock());
-    CHECK(!m.dirty());
+    CHECK_EQ(m.memWrites(), 1u);
+    steps(m, 1);
+    CHECK(!m.memLock());
+    CHECK_EQ(m.memWrites(), 2u);
     CHECK_EQ(m.ap(), 1u);
-    CHECK_EQ(m.cellValue(), 5u);   // cell 1 in memory is still 0
-    CHECK_EQ(m.cell(1), 0u);
+    CHECK_EQ(m.cellValue(), 0u);
 }
 
 TEST(clrml_flushes_and_unlocks)
@@ -426,10 +424,10 @@ TEST(clrml_flushes_and_unlocks)
     CHECK_EQ(m.cell(0), 2u);
     CHECK_EQ(m.memWrites(), 1u);
 
-    Machine m2 = bfMachine("+PM");      // lock without dirty: no write
+    Machine m2 = bfMachine("+PM");      // STORE keeps the lock: M writes again
     steps(m2, 3);
     CHECK(!m2.memLock());
-    CHECK_EQ(m2.memWrites(), 1u);       // only the STORE
+    CHECK_EQ(m2.memWrites(), 2u);
 }
 
 TEST(cout_outputs_cell)
@@ -448,7 +446,6 @@ TEST(cin_sets_memlock_and_echoes)
     m.pushInput('q');
     steps(m, 1);
     CHECK(m.memLock());
-    CHECK(m.dirty());
     CHECK_EQ(m.dataCounter(), 'q');
     CHECK(m.output() == "q");           // EchoMode = 1
     steps(m, 1);
@@ -652,12 +649,11 @@ TEST(clri_keeps_memlock)
     Machine m = bfMachine("+DI");
     steps(m, 3);
     CHECK(m.memLock());
-    CHECK(m.dirty());
 }
 
 TEST(clra)
 {
-    // REQ-ISA-DEBUG-005: dirty counter is flushed to the old cell first
+    // REQ-ISA-DEBUG-005: locked counter is flushed to the old cell first
     Machine m = bfMachine(">>++DA");
     steps(m, 6);
     CHECK_EQ(m.ap(), 0u);
@@ -665,13 +661,14 @@ TEST(clra)
     CHECK(!m.memLock());
 }
 
-TEST(clra_after_store_keeps_lock)
+TEST(clra_after_store_unlocks)
 {
-    // RTL: same rule as > : only a dirty counter unlocks
+    // Same rule as > : a locked counter is flushed and unlocked
     Machine m = bfMachine(">+PDA");
     steps(m, 5);
     CHECK_EQ(m.ap(), 0u);
-    CHECK(m.memLock());
+    CHECK(!m.memLock());
+    CHECK_EQ(m.cell(1), 1u);
 }
 
 TEST(clrd_debug)

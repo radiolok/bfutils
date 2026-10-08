@@ -133,7 +133,7 @@ void Machine::powerOn()
 
     m_ip = m_ap = m_loop = 0;
     m_data      = 0;
-    m_lock = m_dirty = m_memHere = false;
+    m_lock = m_memHere = false;
     m_ipCounted = false;
     m_insn      = OP_NOP;
     m_overflow  = false;
@@ -155,7 +155,7 @@ void Machine::powerOn()
 //
 // soft_rst/hard_rst are physical lines: every counter goes to its reset
 // position, and IpLine/ApLine/MachineCtrl drop their state. Memories keep
-// their contents (ferrite core). A dirty data counter is NOT written back:
+// their contents (ferrite core). A locked data counter is NOT written back:
 // its value is lost. IRET only resets with rst_n.
 //----------------------------------------------------------------------
 void Machine::resetCounters(ResetType type)
@@ -165,7 +165,7 @@ void Machine::resetCounters(ResetType type)
     m_loop = 0;
     m_data = 0;
 
-    m_lock = m_dirty = m_memHere = false;
+    m_lock = m_memHere = false;
     m_ipCounted = false;
     m_overflow  = false;
     m_loading   = false;
@@ -288,18 +288,16 @@ void Machine::flush()
     ++m_memWrites;
     m_dataMem[m_ap] = m_data;
     m_memReg  = m_data;
-    m_dirty   = false;
     m_memHere = true;
 }
 
 // OP_AP_STEP (> <) and OP_AP_ZERO (CLRA).
-// RTL: only a dirty counter is flushed and only the flush releases MemLock.
-// A lock without dirty (after STORE) survives the move, and the counter
-// value then stands for the new cell. TRS REQ-ML-005/007 say the lock is
-// released; the model follows the RTL.
+// MemLock is the only flag: a locked counter owns the cell and is flushed
+// before the address moves, which also releases the lock (REQ-ML-005/007).
+// After STORE this writes the same value a second time.
 void Machine::apMove(bool zero, bool dec)
 {
-    if (m_dirty) {
+    if (m_lock) {
         flush();
         m_lock = false;
     }
@@ -323,7 +321,6 @@ void Machine::dataStep(bool dec)
     m_data  = dec ? static_cast<uint8_t>(wrapDec(m_data, DATA_TOP + 1))
                   : static_cast<uint8_t>(wrapInc(m_data, DATA_TOP + 1));
     m_lock  = true;
-    m_dirty = true;
 }
 
 //----------------------------------------------------------------------
@@ -489,7 +486,6 @@ void Machine::decode()
     case 0x0A: case 0x1A:                       // CLRD, [-]  (REQ-ML-009)
         m_data  = 0;
         m_lock  = true;
-        m_dirty = true;
         break;
 
     //--- Debug ISA -------------------------------------------------------
@@ -516,7 +512,7 @@ void Machine::decode()
         // MachineCtrl issues AP_COUT, then tx_vld. Output is always the
         // data counter: without MemLock ApLine loads the cell into it
         // first (reading it if the memory register is elsewhere). MemLock
-        // and dirty are unchanged, as with LOAD (OPEN-017).
+        // is unchanged, as with LOAD (OPEN-017).
         if (!m_lock) {
             if (!m_memHere)
                 memRead();
@@ -532,7 +528,7 @@ void Machine::decode()
         break;
 
     case 0x1B:                                  // CLRML
-        if (m_dirty)
+        if (m_lock)
             flush();
         m_lock = false;
         break;
@@ -569,7 +565,6 @@ Status Machine::finishCin()
     m_phase = PH_FETCH;
     m_data  = static_cast<uint8_t>(c % (DATA_TOP + 1));
     m_lock  = true;
-    m_dirty = true;
     if (m_cfg.echoMode)
         cout(m_data);
     return Status::Ok;

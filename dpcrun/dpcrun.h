@@ -177,7 +177,6 @@ public:
     // Architectural value of the current cell.
     uint8_t  cellValue() const   { return m_lock ? m_data : m_dataMem[m_ap]; }
     bool     memLock() const     { return m_lock; }
-    bool     dirty() const       { return m_dirty; }
     int      insnMode() const    { return m_mode; }
     bool     loading() const     { return m_loading; }
     bool     halted() const      { return m_halted; }
@@ -236,7 +235,6 @@ private:
 
     // ApLine
     bool     m_lock;
-    bool     m_dirty;
     bool     m_memHere;
 
     // IpLine
