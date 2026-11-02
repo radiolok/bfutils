@@ -90,7 +90,7 @@ std::string readFile(const std::string& path)
     return std::string(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
 }
 
-const char* const BOOTLOADER = "DA0B<D{0B<D}BH";   // rtl/programs/bootloader.bfk
+const char* const BOOTLOADER = "0<{0<}NNNS";   // rtl/programs/bootloader.bfk
 
 } // namespace
 
@@ -100,35 +100,30 @@ const char* const BOOTLOADER = "DA0B<D{0B<D}BH";   // rtl/programs/bootloader.bf
 
 TEST(loader_symbol_table)
 {
-    std::vector<uint8_t> c = assemble("NH+-><[].,0MGPDB");
+    std::vector<uint8_t> c = assemble("NH+-><[].,0SAP{}");
     CHECK_EQ(c.size(), 16u);
     for (size_t i = 0; i < c.size(); ++i)
         CHECK_EQ(c[i], i);
-
-    std::vector<uint8_t> d = assemble("\aES{}LIArr");
-    std::vector<uint8_t> want = {0x2, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xB, 0xD, 0xD};
-    CHECK(d == want);
-    CHECK_EQ(symbolToOpcode('R'), DBG_HRST);
+    CHECK_EQ(symbolToOpcode('E'), OP_LD);       // EOT is LD too
+    // Codes of the old two-mode ISA are gone
+    for (char g : std::string("\aDBMGLIRr"))
+        CHECK_EQ(symbolToOpcode(g), -1);
 }
 
 TEST(loader_skips_comments_keeps_nop)
 {
     // 'N' is opcode 0 and must not be dropped as "false"
     std::vector<uint8_t> c = assemble("a+ b\nN-\t# x");
-    std::vector<uint8_t> want = {BF_INC, OP_NOP, BF_DEC};
+    std::vector<uint8_t> want = {OP_INC, OP_NOP, OP_DEC};
     CHECK(c == want);
 }
 
 TEST(opcode_to_symbol_roundtrip)
 {
-    for (int mode = 0; mode < 2; ++mode)
-        for (uint8_t op = 0; op < 16; ++op) {
-            if (mode == ISA_DEBUG && op == DBG_RSVD)
-                continue;   // reserved code has no own symbol
-            CHECK_EQ(symbolToOpcode(opcodeToSymbol(op, mode)), op);
-        }
-    CHECK(std::string(mnemonic(0xC, ISA_DEBUG)) == "HRST");
-    CHECK(std::string(mnemonic(0xC, ISA_BF)) == "LOAD");
+    for (uint8_t op = 0; op < 16; ++op)
+        CHECK_EQ(symbolToOpcode(opcodeToSymbol(op)), op);
+    CHECK(std::string(mnemonic(0xB)) == "LD");
+    CHECK(std::string(mnemonic(0xD)) == "STORE");
 }
 
 //======================================================================
@@ -139,7 +134,6 @@ TEST(power_on_state)
 {
     Machine m;
     CHECK(m.halted());
-    CHECK_EQ(m.insnMode(), ISA_DEBUG);
     CHECK_EQ(m.ip(), 0u);
     CHECK_EQ(m.iret(), 0u);
     CHECK(m.step() == Status::Halted);
@@ -147,16 +141,16 @@ TEST(power_on_state)
 
 TEST(hard_reset_state)
 {
-    // REQ-RST-001/003, REQ-BOOT-002
+    // REQ-RST-001/003, REQ-BOOT-002: IP = 99990
     Machine m = bfMachine("+++>++");
     steps(m, 5);
     m.hardReset();
     CHECK_EQ(m.ip(), BOOT_BASE);
+    CHECK_EQ(m.ip(), 99990u);
     CHECK_EQ(m.ap(), 0u);
     CHECK_EQ(m.dataCounter(), 0u);
     CHECK_EQ(m.loopCount(), 0u);
     CHECK(!m.memLock());
-    CHECK_EQ(m.insnMode(), ISA_DEBUG);
     CHECK(m.halted());          // RunOnHardRst = 0
     CHECK_EQ(m.iret(), 5u);     // IRET resets only with rst_n
 }
@@ -171,7 +165,6 @@ TEST(soft_reset_state)
     m.softReset();
     CHECK_EQ(m.ip(), 0u);
     CHECK_EQ(m.ap(), 0u);
-    CHECK_EQ(m.insnMode(), ISA_BF);
     CHECK(!m.halted());         // RunOnSoftRst = 1
 }
 
@@ -186,17 +179,29 @@ TEST(reset_drops_locked_counter)
     CHECK_EQ(m.cell(1), 0u);    // 3 was only in the counter
 }
 
+TEST(reset_clears_loop_overflow)
+{
+    // No CLRL in ISA16: only a reset clears the overflow
+    std::string src = std::string(100, '[') + std::string(100, ']');
+    Machine m = bfMachine(src);
+    m.runUntilHalt();
+    CHECK(m.loopOverflow());
+    m.softReset();
+    CHECK(!m.loopOverflow());
+    CHECK_EQ(m.loopCount(), 0u);
+}
+
 TEST(first_fetch_after_reset_does_not_increment)
 {
     Machine m = bfMachine("+H");
     steps(m, 1);
     CHECK_EQ(m.ip(), 0u);
-    CHECK_EQ(m.insn(), BF_INC);
+    CHECK_EQ(m.insn(), OP_INC);
     CHECK_EQ(m.cellValue(), 1u);
 }
 
 //======================================================================
-// Common instructions (REQ-ISA-002/003/004)
+// Instruction table (REQ-ISA-*, doc/isa16.md)
 //======================================================================
 
 TEST(halt_advances_ip)
@@ -215,55 +220,42 @@ TEST(halt_advances_ip)
     CHECK(m.step() == Status::Halted);
 }
 
-TEST(isa_switch)
+TEST(nop_codes)
 {
-    Machine m = bfMachine("DB");
-    CHECK_EQ(m.insnMode(), ISA_BF);
-    steps(m, 1);
-    CHECK_EQ(m.insnMode(), ISA_DEBUG);
-    steps(m, 1);
-    CHECK_EQ(m.insnMode(), ISA_BF);
-}
-
-TEST(full_decode_table_nop_codes)
-{
-    // Codes that must not change anything but IP/IRET: NOP in both ISAs,
-    // reserved 0x3 and EOT outside loading in Debug (REQ-CTLV2-006)
-    const uint8_t dbgNops[] = {OP_NOP, DBG_RSVD, DBG_EOT};
-    for (uint8_t op : dbgNops) {
+    // NOP and { } decode as nothing: they change nothing but IP/IRET
+    // ({ at AP = 0 is followed by its } so that its later scan ends)
+    const uint8_t nops[] = {OP_NOP, OP_LABEG, OP_LAEND};
+    for (uint8_t op : nops) {
         Machine m;
-        m.loadCode({OP_ISA0, op});
+        m.loadCode({op, OP_LAEND});
         m.softReset();
         m.run();
-        steps(m, 2);
-        CHECK_EQ(m.ip(), 1u);
-        CHECK_EQ(m.ap(), 0u);
+        steps(m, 1);
         CHECK(!m.memLock());
         CHECK(!m.loading());
         CHECK(!m.halted());
+        CHECK_EQ(m.ap(), 0u);
         CHECK_EQ(m.bells(), 0u);
-        CHECK_EQ(m.insnMode(), ISA_DEBUG);
     }
 }
 
-TEST(all_32_codes_decode)
+TEST(all_16_codes_decode)
 {
-    // Every {mode, opcode} pair retires or halts; nothing throws or hangs
-    for (int mode = 0; mode < 2; ++mode)
-        for (uint8_t op = 0; op < 16; ++op) {
-            Machine m;
-            m.loadCode({mode == ISA_BF ? OP_ISA1 : OP_ISA0, op, OP_HALT});
-            m.softReset();
-            m.run();
-            m.pushInput('x');
-            Status s = m.runUntilHalt(10);
-            CHECK(s == Status::Halted || s == Status::WaitInput || s == Status::Ok);
-            CHECK(m.iret() >= 2u);
-        }
+    // Every opcode retires or halts; nothing throws or hangs
+    for (uint8_t op = 0; op < 16; ++op) {
+        Machine m;
+        m.loadCode({op, OP_HALT, OP_LAEND, OP_LEND});
+        m.softReset();
+        m.run();
+        m.pushInput('x');
+        Status s = m.runUntilHalt(10);
+        CHECK(s == Status::Halted || s == Status::WaitInput || s == Status::Ok);
+        CHECK(m.iret() >= 1u);
+    }
 }
 
 //======================================================================
-// Brainfuck ISA: data and address (REQ-ISA-BF-*, REQ-ML-*)
+// Data and address (REQ-ISA-BF-*, REQ-ML-*)
 //======================================================================
 
 TEST(data_wraps_0_255)
@@ -333,7 +325,7 @@ TEST(lazy_read_pointer_moves_do_not_touch_memory)
 TEST(tx_shows_counter_after_move)
 {
     // tx_data_bcd is always the data counter; after a move it still holds
-    // the previous cell until COUT (or +, LOAD) loads the new one
+    // the previous cell until COUT (or +) loads the new one
     Machine m = bfMachine("+++>");
     steps(m, 4);
     CHECK_EQ(m.txData(), 3u);
@@ -375,59 +367,32 @@ TEST(clrd_sets_memlock)
     CHECK_EQ(m.cell(0), 0u);
 }
 
-TEST(load_overwrites_counter_keeps_lock)
+TEST(store_copies_cell)
 {
-    // REQ-ISA-BF-003, REQ-ML-004
-    Machine m = bfMachine("+++G");
-    m.setCell(0, 7);
-    steps(m, 3);
-    CHECK_EQ(m.dataCounter(), 10u);
-    steps(m, 1);
-    CHECK_EQ(m.dataCounter(), 7u);
-    CHECK(m.memLock());
-    CHECK_EQ(m.cellValue(), 7u);
-}
-
-TEST(store_copies_counter)
-{
-    // REQ-ISA-BF-004: LOAD at A, move, STORE at B copies A to B
-    Machine m = bfMachine("G>>P");
+    // STORE takes over the current cell with the counter's old value
+    // without a load; the next move writes it there: '>' STORE '<' copies
+    Machine m = bfMachine(".>P<");
     m.setCell(0, 99);
-    steps(m, 4);
-    CHECK_EQ(m.cell(2), 99u);
+    steps(m, 3);
+    CHECK(m.memLock());
+    CHECK_EQ(m.cellValue(), 99u);
+    CHECK_EQ(m.memWrites(), 0u);        // STORE itself does not write
+    steps(m, 1);
+    CHECK_EQ(m.cell(1), 99u);
     CHECK_EQ(m.cell(0), 99u);
     CHECK(!m.memLock());
+    CHECK_EQ(m.memWrites(), 1u);
 }
 
-TEST(store_keeps_lock_until_move)
+TEST(store_with_lock_changes_nothing)
 {
-    // STORE writes but keeps MemLock; > then flushes again and unlocks
-    // (REQ-ML-005): MemLock is the only flag, so the write is repeated
-    Machine m = bfMachine("+++++P>");
-    steps(m, 6);
-    CHECK_EQ(m.cell(0), 5u);
+    Machine m = bfMachine("+++P>");
+    steps(m, 4);
     CHECK(m.memLock());
-    CHECK_EQ(m.memWrites(), 1u);
+    CHECK_EQ(m.memWrites(), 0u);
     steps(m, 1);
-    CHECK(!m.memLock());
-    CHECK_EQ(m.memWrites(), 2u);
-    CHECK_EQ(m.ap(), 1u);
-    CHECK_EQ(m.cellValue(), 0u);
-}
-
-TEST(clrml_flushes_and_unlocks)
-{
-    // REQ-ML-008 / REQ-ISA-BF-006
-    Machine m = bfMachine("++M");
-    steps(m, 3);
-    CHECK(!m.memLock());
-    CHECK_EQ(m.cell(0), 2u);
+    CHECK_EQ(m.cell(0), 3u);
     CHECK_EQ(m.memWrites(), 1u);
-
-    Machine m2 = bfMachine("+PM");      // STORE keeps the lock: M writes again
-    steps(m2, 3);
-    CHECK(!m2.memLock());
-    CHECK_EQ(m2.memWrites(), 2u);
 }
 
 TEST(cout_outputs_cell)
@@ -469,8 +434,36 @@ TEST(cin_waits_for_input)
     CHECK_EQ(m.cellValue(), 5u);
 }
 
+TEST(clra)
+{
+    // Locked counter is flushed to the old cell first
+    Machine m = bfMachine(">>++A");
+    steps(m, 5);
+    CHECK_EQ(m.ap(), 0u);
+    CHECK_EQ(m.cell(2), 2u);
+    CHECK(!m.memLock());
+}
+
+TEST(clra_after_store_writes_copy)
+{
+    Machine m = bfMachine("+>PA");
+    steps(m, 4);
+    CHECK_EQ(m.ap(), 0u);
+    CHECK(!m.memLock());
+    CHECK_EQ(m.cell(1), 1u);
+}
+
+TEST(bell_on_halt)
+{
+    Config cfg;
+    cfg.bellOnHalt = true;
+    Machine m = bfMachine("H", cfg);
+    m.step();
+    CHECK_EQ(m.bells(), 1u);
+}
+
 //======================================================================
-// Loops (REQ-ISA-BF-001, REQ-ISA-DEBUG-001..003, REQ-CNT-007)
+// Loops (REQ-ISA-BF-001, REQ-CNT-007)
 //======================================================================
 
 TEST(lbeg_skip_stops_on_matching_bracket)
@@ -481,7 +474,7 @@ TEST(lbeg_skip_stops_on_matching_bracket)
     CHECK_EQ(m.ip(), 0u);
     steps(m, 1);
     CHECK_EQ(m.ip(), 6u);
-    CHECK_EQ(m.insn(), BF_LEND);
+    CHECK_EQ(m.insn(), OP_LEND);
     CHECK_EQ(m.loopCount(), 0u);        // self-cleaning
     CHECK_EQ(m.iret(), 2u);
     steps(m, 1);
@@ -509,16 +502,27 @@ TEST(bracket_test_reads_once)
     CHECK_EQ(m.memReads(), 1u);
 }
 
-TEST(debug_loops_test_ap)
+TEST(ap_loops_test_ap)
 {
-    // { skips when AP == 0; } repeats while AP != 0
-    Machine m;
-    m.loadCode(assemble("D{\a}B>D{B<D}H"));
-    m.softReset();
-    m.run();
+    // { skips when AP == 0; } repeats while AP != 0; no memory read
+    Machine m = bfMachine("{+}>>>{<}H");
     CHECK(m.runUntilHalt(100) == Status::Halted);
-    CHECK_EQ(m.bells(), 0u);            // body of the first loop skipped
+    CHECK_EQ(m.cellValue(), 0u);        // body of the first loop skipped
     CHECK_EQ(m.ap(), 0u);               // second loop ran AP down to 0
+    CHECK_EQ(m.memReads(), 0u);
+}
+
+TEST(mixed_brackets_scan_together)
+{
+    // The scan counts [ ] and { } together (IpLine sees only x11x)
+    Machine z = bfMachine("[{+}]+H");
+    CHECK(z.runUntilHalt(100) == Status::Halted);
+    CHECK_EQ(z.cellValue(), 1u);        // [ at zero skipped the whole { + }
+    Machine b = bfMachine(">>+{[-]<}H");
+    CHECK(b.runUntilHalt(100) == Status::Halted);
+    CHECK_EQ(b.ap(), 0u);               // } scanned back over [ ] to {
+    CHECK_EQ(b.cell(2), 0u);
+    CHECK_EQ(b.cell(1), 0u);
 }
 
 TEST(loop_depth_99_ok)
@@ -568,20 +572,6 @@ TEST(loop_overflow_sticks_at_top)
     CHECK_EQ(m.ip(), 101u);              // stood on its own [, halt step +1
 }
 
-TEST(clrl_clears_loop_and_error)
-{
-    // REQ-ISA-DEBUG-006
-    std::string src = std::string(100, '[') + std::string(100, ']');
-    Machine m = bfMachine(src);
-    m.runUntilHalt();
-    CHECK(m.loopOverflow());
-    m.loadCode(assemble("DL"), m.ip());
-    m.run();
-    steps(m, 2);
-    CHECK(!m.loopOverflow());
-    CHECK_EQ(m.loopCount(), 0u);
-}
-
 TEST(unmatched_bracket_overflows)
 {
     // A lone [ is counted again on every turn through program memory, so
@@ -595,171 +585,68 @@ TEST(unmatched_bracket_overflows)
 
 TEST(backward_scan_wraps_through_bootloader)
 {
-    // An unmatched ] scans back through 0 into the bootloader bank; a
-    // { there counts as an opening bracket (same opcode 0x6)
+    // An unmatched ] scans back through 0 into the bootloader decade; a
+    // { there counts as an opening bracket (x11x)
     Machine m = bfMachine("+]H");
-    m.setBootRom(assemble("{"));
+    std::vector<uint8_t> rom(BOOT_SIZE, OP_NOP);
+    rom[BOOT_SIZE - 1] = OP_LABEG;      // at 99999
+    m.setBootRom(rom);
     steps(m, 3);
-    CHECK_EQ(m.ip(), BOOT_BASE);
-    CHECK_EQ(m.insn(), DBG_LABEG);
+    CHECK_EQ(m.ip(), IP_SIZE - 1);
+    CHECK_EQ(m.insn(), OP_LABEG);
 }
 
 //======================================================================
-// Debug ISA (REQ-ISA-DEBUG-*, REQ-VER-015)
+// LD (SOT/EOT) program loading (REQ-LOAD-*, REQ-VER-018)
 //======================================================================
 
-TEST(bell)
+TEST(ld_loads_after_itself)
 {
-    Machine m;
-    int hooks = 0;
-    m.onBell = [&hooks]() { ++hooks; };
-    m.loadCode(assemble("D\a\aH"));
-    m.softReset();
-    m.run();
-    CHECK(m.runUntilHalt() == Status::Halted);
-    CHECK_EQ(m.bells(), 2u);
-    CHECK_EQ(hooks, 2);
-}
-
-TEST(bell_on_halt)
-{
-    Config cfg;
-    cfg.bellOnHalt = true;
-    Machine m = bfMachine("H", cfg);
-    m.step();
-    CHECK_EQ(m.bells(), 1u);
-}
-
-TEST(clri_restarts_at_zero)
-{
-    // REQ-ISA-DEBUG-004. The next instruction executed is at address 0,
-    // read without an increment.
-    Machine m = bfMachine("+DNI");
-    steps(m, 4);
-    CHECK_EQ(m.ip(), 0u);
-    steps(m, 1);
-    CHECK_EQ(m.ip(), 0u);
-    CHECK_EQ(m.insn(), BF_INC);
-}
-
-TEST(clri_keeps_memlock)
-{
-    // RTL: CLRI only resets the IP counter. TRS REQ-ML-006 says it also
-    // clears MemLock.
-    Machine m = bfMachine("+DI");
-    steps(m, 3);
-    CHECK(m.memLock());
-}
-
-TEST(clra)
-{
-    // REQ-ISA-DEBUG-005: locked counter is flushed to the old cell first
-    Machine m = bfMachine(">>++DA");
-    steps(m, 6);
-    CHECK_EQ(m.ap(), 0u);
-    CHECK_EQ(m.cell(2), 2u);
-    CHECK(!m.memLock());
-}
-
-TEST(clra_after_store_unlocks)
-{
-    // Same rule as > : a locked counter is flushed and unlocked
-    Machine m = bfMachine(">+PDA");
-    steps(m, 5);
-    CHECK_EQ(m.ap(), 0u);
-    CHECK(!m.memLock());
-    CHECK_EQ(m.cell(1), 1u);
-}
-
-TEST(clrd_debug)
-{
-    Machine m = bfMachine("D0");
-    m.setCell(0, 9);
-    steps(m, 2);
-    CHECK_EQ(m.cellValue(), 0u);
-    CHECK(m.memLock());
-}
-
-TEST(hrst_opcode)
-{
-    // REQ-ISA-DEBUG-008, REQ-RST-006: with RunOnHardRst the bootloader runs
-    Config cfg;
-    cfg.runOnHardRst = true;
-    Machine m = bfMachine("+DR", cfg);
-    m.setBootRom(assemble("\aH"));
-    steps(m, 3);
-    CHECK_EQ(m.ip(), BOOT_BASE);
-    CHECK_EQ(m.insnMode(), ISA_DEBUG);
-    CHECK(!m.halted());
-    CHECK(m.runUntilHalt() == Status::Halted);
-    CHECK_EQ(m.bells(), 1u);
-    CHECK_EQ(m.ip(), BOOT_BASE + 2);
-}
-
-TEST(srst_opcode)
-{
-    // REQ-ISA-DEBUG-009, REQ-RST-007: without RunOnSoftRst the machine waits
-    Machine m = bfMachine(">+Dr");
-    CHECK(m.runUntilHalt() == Status::Halted);
-    CHECK_EQ(m.ip(), 0u);
-    CHECK_EQ(m.ap(), 0u);
-    CHECK_EQ(m.insnMode(), ISA_BF);
-    CHECK_EQ(m.iret(), 4u);
-}
-
-//======================================================================
-// SOT/EOT program loading (REQ-LOAD-*, REQ-VER-018)
-//======================================================================
-
-TEST(sot_loads_after_itself)
-{
-    // REQ-LOAD-001/002/006/007/008: a program executes SOT and loads at
-    // the address after it, EOT is not
-    // stored, SoftRstOnEOT gives Soft Reset
-    Machine m = bfMachine("DS");
-    m.pushInsns({BF_INC, BF_INC, BF_COUT, DBG_EOT});
+    // REQ-LOAD-001/002/006/007/008: a program executes LD and loads at
+    // the address after it; LD in the stream is EOT, not stored,
+    // SoftRstOnEOT gives Soft Reset
+    Machine m = bfMachine("NS");
+    m.pushInsns({OP_INC, OP_AINC, OP_COUT, OP_LD});
     steps(m, 2);
     CHECK(m.loading());
-    CHECK_EQ(m.insnMode(), ISA_DEBUG);  // OPEN-003: SOT keeps the ISA
     CHECK(m.runUntilHalt() == Status::Halted);
     CHECK(!m.loading());
-    CHECK_EQ(m.code(2), BF_INC);
-    CHECK_EQ(m.code(3), BF_INC);
-    CHECK_EQ(m.code(4), BF_COUT);
+    CHECK_EQ(m.code(2), OP_INC);
+    CHECK_EQ(m.code(3), OP_AINC);       // '>' loads: EOT is a separate code
+    CHECK_EQ(m.code(4), OP_COUT);
     CHECK_EQ(m.code(5), OP_NOP);        // EOT not written
     CHECK_EQ(m.ip(), 0u);
-    CHECK_EQ(m.insnMode(), ISA_BF);
     CHECK_EQ(m.iret(), 6u);             // 2 + 3 opcodes + EOT
 }
 
-TEST(sot_at_top_wraps_to_zero)
+TEST(ld_at_top_wraps_to_zero)
 {
-    // REQ-LOAD-005: SOT at the top address, the load wraps to 0.
-    // In Debug ISA 0x4 is EOT, so a load in Debug ISA can't carry '>'.
+    // REQ-LOAD-005: LD at the top address, the load wraps to 0
     Machine m;
     std::vector<uint8_t> rom(BOOT_SIZE, OP_NOP);
-    rom[99] = DBG_SOT;                  // SOT at 99999
+    rom[BOOT_SIZE - 1] = OP_LD;         // LD at 99999
     m.setBootRom(rom);
     m.hardReset();
     m.run();
-    m.pushInsns({BF_INC, BF_DEC, DBG_EOT});
+    m.pushInsns({OP_INC, OP_DEC, OP_AINC, OP_LD});
     CHECK(m.runUntilHalt() == Status::Halted);
-    CHECK_EQ(m.code(0), BF_INC);
-    CHECK_EQ(m.code(1), BF_DEC);
+    CHECK_EQ(m.code(0), OP_INC);
+    CHECK_EQ(m.code(1), OP_DEC);
+    CHECK_EQ(m.code(2), OP_AINC);
     CHECK_EQ(m.ip(), 0u);
 }
 
 TEST(load_into_bootloader_is_ignored)
 {
-    // REQ-MEM-IP-007: the ROM bank is write-protected
-    std::vector<uint8_t> rom = assemble("\a");
+    // REQ-MEM-IP-007: the ROM decade is write-protected
+    std::vector<uint8_t> rom = assemble("+");
     Machine n;
     n.setBootRom(rom);
-    n.hardReset();                      // IP = 99900
+    n.hardReset();                      // IP = 99990
     n.startLoading();                   // loads at the current IP
-    n.pushInsns({BF_INC, DBG_EOT});
+    n.pushInsns({OP_DEC, OP_LD});
     CHECK(n.runUntilHalt() == Status::Halted);
-    CHECK_EQ(n.code(BOOT_BASE), DBG_BELL);   // unchanged
+    CHECK_EQ(n.code(BOOT_BASE), OP_INC);     // unchanged
     CHECK_EQ(n.code(BOOT_BASE + 1), OP_NOP);
 }
 
@@ -768,18 +655,17 @@ TEST(panel_loading_starts_at_current_ip)
     Machine m;
     m.softReset();
     m.startLoading();
-    m.pushInsns({BF_INC, BF_INC});
+    m.pushInsns({OP_INC, OP_INC});
     steps(m, 2);
-    CHECK_EQ(m.code(0), BF_INC);
-    CHECK_EQ(m.code(1), BF_INC);
+    CHECK_EQ(m.code(0), OP_INC);
+    CHECK_EQ(m.code(1), OP_INC);
     CHECK_EQ(m.ip(), 1u);
     CHECK(m.step() == Status::WaitInput);
     CHECK_EQ(m.ip(), 2u);               // IP moved before waiting (S_INSN_IN)
-    m.pushInsn(DBG_EOT);
-    // mode after softReset is BF: 0x4 is '>' there, not EOT
+    m.pushInsn(OP_AINC);
     CHECK(m.step() == Status::Ok);
     CHECK(m.loading());
-    CHECK_EQ(m.code(2), BF_AINC);
+    CHECK_EQ(m.code(2), OP_AINC);
 }
 
 TEST(eot_without_soft_reset_halts)
@@ -787,53 +673,40 @@ TEST(eot_without_soft_reset_halts)
     // REQ-LOAD-009
     Config cfg;
     cfg.softRstOnEot = false;
-    Machine m = bfMachine("DS", cfg);
-    m.pushInsns({BF_INC, DBG_EOT});
+    Machine m = bfMachine("NS", cfg);
+    m.pushInsns({OP_INC, OP_LD});
     CHECK(m.runUntilHalt() == Status::Halted);
     CHECK(!m.loading());
-    CHECK_EQ(m.insnMode(), ISA_DEBUG);
     CHECK_EQ(m.ip(), 4u);               // EOT at 3, halt step +1
-}
-
-TEST(isa1_during_load_hides_eot)
-{
-    // RTL: ISA0/ISA1 act while loading and are stored; after ISA1 the
-    // code 0x4 is '>' and is stored instead of ending the load. ISA0
-    // brings EOT back.
-    Machine m = bfMachine("DS");
-    m.pushInsns({OP_ISA1, BF_AINC, OP_ISA0, DBG_EOT});
-    CHECK(m.runUntilHalt() == Status::Halted);
-    CHECK_EQ(m.code(2), OP_ISA1);
-    CHECK_EQ(m.code(3), BF_AINC);
-    CHECK_EQ(m.code(4), OP_ISA0);
-    CHECK_EQ(m.code(5), OP_NOP);
-    CHECK_EQ(m.ip(), 0u);               // soft reset after EOT
 }
 
 //======================================================================
 // Bootloader and full programs (REQ-BOOT-*, REQ-VER-019)
 //======================================================================
 
-TEST(bootloader_clears_data_ram)
+TEST(bootloader_clears_data_ram_and_loads)
 {
-    // REQ-BOOT-003/005: Debug loops walk AP through all of memory
+    // REQ-BOOT-003/005: { } walk AP through all of memory, then LD at
+    // 99999 loads from address 0
     Config cfg;
     cfg.runOnHardRst = true;
+    cfg.runOnSoftRst = true;
     Machine m(cfg);
     m.setBootRom(assemble(BOOTLOADER));
     for (uint32_t a = 0; a <= AP_TOP_BF; a += 997)
         m.setCell(a, static_cast<uint8_t>(a | 1));
     m.setCell(AP_TOP_BF, 1);
     m.hardReset();
+    m.pushInsns(assemble("++.HE"));
+    m.pushInput(0);
     CHECK(m.runUntilHalt() == Status::Halted);
     bool allZero = true;
-    for (uint32_t a = 0; a <= AP_TOP_BF; ++a)
+    for (uint32_t a = 1; a <= AP_TOP_BF; ++a)
         allZero = allZero && (m.cell(a) == 0);
     CHECK(allZero);
-    CHECK_EQ(m.ap(), 0u);
-    CHECK(!m.memLock());
-    CHECK_EQ(m.insnMode(), ISA_BF);
-    CHECK_EQ(m.ip(), BOOT_BASE + 14);   // H at 99913, halt step +1
+    CHECK_EQ(m.code(0), OP_INC);
+    CHECK_EQ(m.code(3), OP_HALT);
+    CHECK(m.output() == std::string(1, '\x02'));   // the loaded program ran
     CHECK(!m.loopOverflow());
 }
 
