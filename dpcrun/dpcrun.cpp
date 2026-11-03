@@ -51,7 +51,7 @@ int symbolToOpcode(char c)
     case 'S':  return OP_LD;      // start of loading
     case 'E':  return OP_LD;      // end of loading in the load stream
     case 'A':  return OP_CLRA;
-    case 'P':  return OP_STORE;
+    case 'P':  return OP_MEMLOCK;
     case '{':  return OP_LABEG;
     case '}':  return OP_LAEND;
     default:   return -1;
@@ -80,7 +80,7 @@ const char* mnemonic(uint8_t op)
 {
     static const char* const name[16] = {
         "NOP", "HALT", "INC", "DEC", "AINC", "ADEC", "LBEG", "LEND",
-        "COUT", "CIN", "CLRD", "LD", "CLRA", "STORE", "LABEG", "LAEND"
+        "COUT", "CIN", "CLRD", "LD", "CLRA", "MEMLOCK", "LABEG", "LAEND"
     };
     return name[op & 0xF];
 }
@@ -276,7 +276,7 @@ void Machine::flush()
 // OP_AP_STEP (> <) and OP_AP_ZERO (CLRA).
 // MemLock is the only flag: a locked counter owns the cell and is flushed
 // before the address moves, which also releases the lock (REQ-ML-005/007).
-// After STORE this writes the counter into the cell STORE took over.
+// After MemLock this writes the counter into the cell MemLock took over.
 void Machine::apMove(bool zero, bool dec)
 {
     if (m_lock) {
@@ -458,7 +458,7 @@ void Machine::decode()
     case OP_LD: m_loading = true; break;        // SOT
     case OP_CLRA: apMove(true, false); break;
 
-    case OP_STORE:                              // MemLock without a load
+    case OP_MEMLOCK:                            // flag without a load
         m_lock = true;
         break;
 

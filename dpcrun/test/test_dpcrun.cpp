@@ -123,7 +123,7 @@ TEST(opcode_to_symbol_roundtrip)
     for (uint8_t op = 0; op < 16; ++op)
         CHECK_EQ(symbolToOpcode(opcodeToSymbol(op)), op);
     CHECK(std::string(mnemonic(0xB)) == "LD");
-    CHECK(std::string(mnemonic(0xD)) == "STORE");
+    CHECK(std::string(mnemonic(0xD)) == "MEMLOCK");
 }
 
 //======================================================================
@@ -369,14 +369,14 @@ TEST(clrd_sets_memlock)
 
 TEST(store_copies_cell)
 {
-    // STORE takes over the current cell with the counter's old value
-    // without a load; the next move writes it there: '>' STORE '<' copies
+    // MemLock takes over the current cell with the counter's old value
+    // without a load; the next move writes it there: '>' MemLock '<' copies
     Machine m = bfMachine(".>P<");
     m.setCell(0, 99);
     steps(m, 3);
     CHECK(m.memLock());
     CHECK_EQ(m.cellValue(), 99u);
-    CHECK_EQ(m.memWrites(), 0u);        // STORE itself does not write
+    CHECK_EQ(m.memWrites(), 0u);        // MemLock itself does not write
     steps(m, 1);
     CHECK_EQ(m.cell(1), 99u);
     CHECK_EQ(m.cell(0), 99u);

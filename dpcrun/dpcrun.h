@@ -56,7 +56,7 @@ enum Opcode : uint8_t {
     OP_CLRD  = 0xA,    // [-] sets MemLock
     OP_LD    = 0xB,    // SOT; EOT in the load stream (not stored)
     OP_CLRA  = 0xC,
-    OP_STORE = 0xD,    // sets MemLock without a load: cell := data counter
+    OP_MEMLOCK = 0xD,  // sets the MemLock flag without a load: cell := data counter
     OP_LABEG = 0xE,    // {  skip if AP == 0
     OP_LAEND = 0xF     // }  repeat if AP != 0
 };
