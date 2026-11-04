@@ -535,10 +535,10 @@ TEST(loop_depth_99_ok)
     CHECK_EQ(m.ip(), 199u);
 }
 
-TEST(loop_overflow_halts)
+TEST(loop_overflow_stops)
 {
-    // REQ-CNT-007: the 100th level overflows; caught before the step, the
-    // scan is aborted and the machine halts
+    // REQ-CNT-007, TC-N2: the 100th level overflows; caught before the step,
+    // the scan is aborted and the machine stops (not halted) on the bracket
     Config cfg;
     cfg.bellOnError = true;
     std::string src = std::string(100, '[') + std::string(100, ']') + "H";
@@ -546,30 +546,30 @@ TEST(loop_overflow_halts)
     CHECK(m.step() == Status::Ok);
     CHECK(m.step() == Status::Halted);
     CHECK(m.loopOverflow());
+    CHECK(!m.halted());                 // stopped, not in the halt state
     CHECK_EQ(m.loopCount(), 99u);       // the increment is not issued
     CHECK_EQ(m.bells(), 1u);
-    CHECK_EQ(m.ip(), 100u);             // stopped at 99, halt step +1
+    CHECK_EQ(m.ip(), 99u);              // stands on the bracket, no halt step
     CHECK_EQ(m.iret(), 1u);
 }
 
-TEST(loop_overflow_sticks_at_top)
+TEST(loop_overflow_run_does_not_restart)
 {
-    // After an overflow the counter stays at 99: the next scan overflows at
-    // once on its own bracket, without moving IP
+    // Only a reset clears the overflow: Run and further steps do nothing
     Config cfg;
     cfg.bellOnError = true;
     std::string src = std::string(100, '[') + std::string(100, ']') + "H";
     Machine m = bfMachine(src, cfg);
     m.runUntilHalt();
     CHECK(m.loopOverflow());
-    CHECK_EQ(m.loopCount(), 99u);
-    CHECK_EQ(m.ip(), 100u);
-    m.loadCode(assemble("[]"), m.ip());  // a fresh, balanced scan with loop = 99
     m.run();
+    CHECK(m.step() == Status::Halted);
     CHECK(m.runUntilHalt() == Status::Halted);
-    CHECK_EQ(m.bells(), 2u);             // the second overflow fired
-    CHECK_EQ(m.loopCount(), 99u);
-    CHECK_EQ(m.ip(), 101u);              // stood on its own [, halt step +1
+    CHECK_EQ(m.ip(), 99u);
+    CHECK_EQ(m.bells(), 1u);
+    CHECK_EQ(m.iret(), 1u);
+    m.softReset();
+    CHECK(!m.loopOverflow());
 }
 
 TEST(unmatched_bracket_overflows)
@@ -580,7 +580,7 @@ TEST(unmatched_bracket_overflows)
     CHECK(m.step() == Status::Ok);
     CHECK(m.step() == Status::Halted);
     CHECK(m.loopOverflow());
-    CHECK_EQ(m.ip(), 1u);               // stopped on its own [, halt step +1
+    CHECK_EQ(m.ip(), 0u);               // stopped on its own [ (TC-N2: no halt step)
 }
 
 TEST(backward_scan_wraps_through_bootloader)

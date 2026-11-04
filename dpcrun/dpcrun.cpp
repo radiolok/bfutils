@@ -354,7 +354,8 @@ Status Machine::fetch()
 // counted together (IpLine sees only x11x). The scan stops ON
 // the matching bracket, which is then decoded as an ordinary instruction.
 // Incrementing past 99 is the hardware error of REQ-CNT-007: the scan is
-// aborted and the machine halts. As in the RTL (IpLine, at_top of the loop
+// aborted and the machine stops until a reset (TC-N2: IpLine stays not
+// ready, MachineCtrl waits; no halt, IP stays on the bracket). As in the RTL (IpLine, at_top of the loop
 // counter) the overflow is caught BEFORE the step: the increment is not
 // issued and the counter stays at 99 until a reset. A scan that
 // starts with the counter already at 99 overflows at once.
@@ -386,11 +387,14 @@ Status Machine::scan(bool backward)
         }
     }
 
-    // MachineCtrl halts on the rising edge of loop_overflow (REQ-CTLV2-005)
+    // TC-N2 (DekatronPC TRS v0.46): IpLine keeps ready low after the
+    // overflow, so the machine stands still until a reset; it does not enter
+    // the halt state, and Run/Step can't restart it. The error bell is the
+    // overflow level (one ring per overflow here).
     m_overflow = true;
+    m_phase    = PH_FETCH;
     if (m_cfg.bellOnError)
         bell();
-    enterHalt();
     return Status::Halted;
 }
 
@@ -512,7 +516,7 @@ Status Machine::finishCin()
 
 Status Machine::step()
 {
-    if (m_halted)
+    if (m_halted || m_overflow)     // halted, or stopped by an overflow
         return Status::Halted;
 
     switch (m_phase) {

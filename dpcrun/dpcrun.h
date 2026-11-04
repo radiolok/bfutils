@@ -98,7 +98,7 @@ struct Config {
 //----------------------------------------------------------------------
 enum class Status {
     Ok,          // instruction retired, machine keeps running
-    Halted,      // machine is (or just became) halted
+    Halted,      // machine is (or just became) halted, or stopped by a loop overflow
     WaitInput    // CIN or load mode has no input; retry after input
 };
 
