@@ -30,12 +30,13 @@ namespace dpc {
 //----------------------------------------------------------------------
 // Architecture sizes (rtl/parameters.sv)
 //----------------------------------------------------------------------
-const uint32_t IP_SIZE    = 100000;   // 5 dekatrons: 0..99999
-const uint32_t BOOT_BASE  = 99990;    // bootloader ROM, one decade
+const uint32_t IP_SIZE    = 10000;    // 4 dekatrons: 0..9999
+const uint32_t BOOT_BASE  = 9990;     // bootloader ROM, one decade
 const uint32_t BOOT_SIZE  = 10;
 const uint32_t LOOP_SIZE  = 100;      // 2 dekatrons: 0..99 (LOOP_DEKATRON_NUM)
 const uint32_t DATA_TOP   = 255;      // 3 dekatrons, TOP_LIMIT_MODE
-const uint32_t AP_TOP_BF  = 29999;    // OPEN-001: 29999 or 99999
+const uint32_t AP_SIZE    = 1000;     // 3 dekatrons: 0..999, wraps 0 <-> 999
+const uint32_t AP_TOP     = AP_SIZE - 1;
 
 //----------------------------------------------------------------------
 // Opcodes: one 4-bit instruction set (ISA16), no modes. 0x0..0xA are the
@@ -83,7 +84,7 @@ const char* mnemonic(uint8_t op);
 // Panel switches and parameters
 //----------------------------------------------------------------------
 struct Config {
-    uint32_t apTop        = AP_TOP_BF;   // OPEN-001
+    uint32_t apTop        = AP_TOP;      // a smaller ring is a model option only
     bool     runOnHardRst = false;       // OPEN-011: Emulator hardcodes these
     bool     runOnSoftRst = false;
     bool     softRstOnEot = true;

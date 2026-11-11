@@ -141,12 +141,12 @@ TEST(power_on_state)
 
 TEST(hard_reset_state)
 {
-    // REQ-RST-001/003, REQ-BOOT-002: IP = 99990
+    // REQ-RST-001/003, REQ-BOOT-002: IP = 9990
     Machine m = bfMachine("+++>++");
     steps(m, 5);
     m.hardReset();
     CHECK_EQ(m.ip(), BOOT_BASE);
-    CHECK_EQ(m.ip(), 99990u);
+    CHECK_EQ(m.ip(), 9990u);
     CHECK_EQ(m.ap(), 0u);
     CHECK_EQ(m.dataCounter(), 0u);
     CHECK_EQ(m.loopCount(), 0u);
@@ -274,15 +274,16 @@ TEST(ap_wraps_at_top)
 {
     Machine m = bfMachine("<><");
     steps(m, 1);
-    CHECK_EQ(m.ap(), AP_TOP_BF);
+    CHECK_EQ(m.ap(), AP_TOP);
+    CHECK_EQ(m.ap(), 999u);
     steps(m, 1);
     CHECK_EQ(m.ap(), 0u);
 
     Config cfg;
-    cfg.apTop = 99999;   // OPEN-001 alternative
+    cfg.apTop = 299;     // a smaller ring (model option)
     Machine m2 = bfMachine("<", cfg);
     steps(m2, 1);
-    CHECK_EQ(m2.ap(), 99999u);
+    CHECK_EQ(m2.ap(), 299u);
 }
 
 TEST(memlock_taken_before_first_step)
@@ -589,7 +590,7 @@ TEST(backward_scan_wraps_through_bootloader)
     // { there counts as an opening bracket (x11x)
     Machine m = bfMachine("+]H");
     std::vector<uint8_t> rom(BOOT_SIZE, OP_NOP);
-    rom[BOOT_SIZE - 1] = OP_LABEG;      // at 99999
+    rom[BOOT_SIZE - 1] = OP_LABEG;      // at 9999
     m.setBootRom(rom);
     steps(m, 3);
     CHECK_EQ(m.ip(), IP_SIZE - 1);
@@ -624,7 +625,7 @@ TEST(ld_at_top_wraps_to_zero)
     // REQ-LOAD-005: LD at the top address, the load wraps to 0
     Machine m;
     std::vector<uint8_t> rom(BOOT_SIZE, OP_NOP);
-    rom[BOOT_SIZE - 1] = OP_LD;         // LD at 99999
+    rom[BOOT_SIZE - 1] = OP_LD;         // LD at 9999
     m.setBootRom(rom);
     m.hardReset();
     m.run();
@@ -642,7 +643,7 @@ TEST(load_into_bootloader_is_ignored)
     std::vector<uint8_t> rom = assemble("+");
     Machine n;
     n.setBootRom(rom);
-    n.hardReset();                      // IP = 99990
+    n.hardReset();                      // IP = 9990
     n.startLoading();                   // loads at the current IP
     n.pushInsns({OP_DEC, OP_LD});
     CHECK(n.runUntilHalt() == Status::Halted);
@@ -687,21 +688,21 @@ TEST(eot_without_soft_reset_halts)
 TEST(bootloader_clears_data_ram_and_loads)
 {
     // REQ-BOOT-003/005: { } walk AP through all of memory, then LD at
-    // 99999 loads from address 0
+    // 9999 loads from address 0
     Config cfg;
     cfg.runOnHardRst = true;
     cfg.runOnSoftRst = true;
     Machine m(cfg);
     m.setBootRom(assemble(BOOTLOADER));
-    for (uint32_t a = 0; a <= AP_TOP_BF; a += 997)
+    for (uint32_t a = 0; a <= AP_TOP; a += 997)
         m.setCell(a, static_cast<uint8_t>(a | 1));
-    m.setCell(AP_TOP_BF, 1);
+    m.setCell(AP_TOP, 1);
     m.hardReset();
     m.pushInsns(assemble("++.HE"));
     m.pushInput(0);
     CHECK(m.runUntilHalt() == Status::Halted);
     bool allZero = true;
-    for (uint32_t a = 1; a <= AP_TOP_BF; ++a)
+    for (uint32_t a = 1; a <= AP_TOP; ++a)
         allZero = allZero && (m.cell(a) == 0);
     CHECK(allZero);
     CHECK_EQ(m.code(0), OP_INC);

@@ -104,8 +104,8 @@ static inline uint32_t wrapDec(uint32_t v, uint32_t size) { return (v + size - 1
 
 Machine::Machine(const Config& cfg) : m_cfg(cfg)
 {
-    if (m_cfg.apTop == 0 || m_cfg.apTop >= IP_SIZE)
-        throw std::invalid_argument("dpc::Config::apTop must be 1..99999");
+    if (m_cfg.apTop == 0 || m_cfg.apTop > AP_TOP)
+        throw std::invalid_argument("dpc::Config::apTop must be 1..999");
     powerOn();
 }
 
@@ -144,7 +144,7 @@ void Machine::powerOn()
 //----------------------------------------------------------------------
 void Machine::resetCounters(ResetType type)
 {
-    m_ip   = (type == RST_HARD) ? BOOT_BASE : 0;   // HARD_RST_D_CNT = 4 -> 99990
+    m_ip   = (type == RST_HARD) ? BOOT_BASE : 0;   // HARD_RST_D_CNT = 3 -> 9990
     m_ap   = 0;
     m_loop = 0;
     m_data = 0;
@@ -574,9 +574,9 @@ static void usage()
         "dpcrun -f <file> [options]\n"
         "  Runs DekatronPC source text: the loader turns it into opcodes,\n"
         "  puts them at address 0 followed by HALT, then Soft Reset + Run.\n"
-        "  -b <file>  bootloader source for the ROM at 99990\n"
+        "  -b <file>  bootloader source for the ROM at 9990\n"
         "  -B         start with Hard Reset (bootloader) instead of Soft Reset\n"
-        "  -a <top>   AP limit, default 29999 (OPEN-001)\n"
+        "  -a <top>   AP limit, default 999 (AP = 3 dekatrons)\n"
         "  -n <max>   stop after <max> instructions\n"
         "  -s         trace every instruction to stderr\n"
         "  -h         this help\n";
@@ -646,7 +646,7 @@ int main(int argc, char** argv)
     for (uint64_t i = 0; i < maxSteps; ++i) {
         s = m.step();
         if (trace) {
-            fprintf(stderr, "IRET:%llu IP:%05u %-5s LOOP:%02u AP:%05u DATA:%3u ML:%d %s\n",
+            fprintf(stderr, "IRET:%llu IP:%04u %-5s LOOP:%02u AP:%03u DATA:%3u ML:%d %s\n",
                     static_cast<unsigned long long>(m.iret()), m.ip(),
                     dpc::mnemonic(m.insn()), m.loopCount(), m.ap(),
                     m.txData(), m.memLock(), dpc::statusName(s));

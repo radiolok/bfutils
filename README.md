@@ -147,19 +147,19 @@ bfrun -f image.out [-x] [-s] [-d]
 ## dpcrun — DekatronPC model
 
 ```
-dpcrun -f source.bfk [-b boot.bfk] [-B] [-a 99999] [-n max] [-s]
+dpcrun -f source.bfk [-b boot.bfk] [-B] [-a 999] [-n max] [-s]
 ```
 
 `dpcrun` is the instruction-level golden model of DekatronPC. It mirrors the current RTL (`MachineCtrl`, `IpLine`, `ApLine`), including the places where the RTL and the DekatronPC requirements (TRS) still disagree; those are marked `RTL:` in the source.
 
 What it models:
-- **Program memory**: 100 000 4-bit opcodes (never ASCII). Addresses 99900–99999 are the write-protected bootloader ROM.
-- **Both ISAs**: decoding is on `{mode, opcode}`; all 32 combinations are covered. Hard Reset starts in Debug ISA at 99900, Soft Reset in Brainfuck ISA at 0.
-- **Counters**: IP 0–99999, AP 0–29999 (or up to 99999 with `-a`), data 0–255, loop nesting 0–999. A loop scan stops *on* the matching bracket, which is then executed; nesting past 999 is a hardware error that halts the machine.
-- **MemLock**: the data counter holds the cell during `+`/`-`, is flushed on `>`/`<`/`CLRA`/`CLRML`, and the cell is only read when its value is needed (lazy read). `memReads()`/`memWrites()` count the data memory accesses.
-- **Program loading**: `SOT` switches to loading, opcodes are written from the next address, `EOT` ends it (Soft Reset or halt).
+- **Program memory**: 10 000 4-bit opcodes (never ASCII). Addresses 9990–9999 are the write-protected bootloader ROM.
+- **One instruction set (ISA16)**: decoding is on the 4-bit opcode alone, all 16 codes are defined, there are no modes. Hard Reset starts at 9990, Soft Reset at 0.
+- **Counters**: IP 0–9999 (4 dekatrons), AP 0–999 (3 dekatrons, wraps 0 ↔ 999; `-a` sets a smaller ring), data 0–255, loop nesting 0–99. A loop scan stops *on* the matching bracket, which is then executed; nesting past 99 is a hardware error that stops the machine.
+- **MemLock**: the data counter holds the cell during `+`/`-`, is flushed on `>`/`<`/`CLRA`, and the cell is only read when its value is needed (lazy read). `memReads()`/`memWrites()` count the data memory accesses.
+- **Program loading**: `LD` (SOT) switches to loading, opcodes are written from the next address, `LD` in the stream (EOT) ends it (Soft Reset or halt) and is not stored.
 
-The command line turns source text into opcodes with the same symbol table as DekatronPC's `generate_rom.py` (`+-<>[].,` plus `N H 0 M G P D B` and the Debug symbols `E S { } L I A R r`), puts the program at 0 followed by HALT, and runs it after a Soft Reset. `-b` loads a bootloader into the ROM, `-B` starts from Hard Reset instead, `-s` traces every instruction to stderr. Program output goes to stdout, followed by `IRET`, the memory access counts and the final status.
+The command line turns source text into opcodes with the same symbol table as DekatronPC's `generate_rom.py` (`+-<>[].,` plus `N H 0 S E A P { }`), puts the program at 0 followed by HALT, and runs it after a Soft Reset. `-b` loads a bootloader into the ROM, `-B` starts from Hard Reset instead, `-s` traces every instruction to stderr. Program output goes to stdout, followed by `IRET`, the memory access counts and the final status.
 
 It is also a **library** (`dpcmodel` in CMake). `dpcrun/dpcrun.h` provides:
 - `dpc::Machine`: the machine. `loadCode()`, `setBootRom()`, `hardReset()`, `softReset()`, `run()`, `step()`, plus getters for every counter and flag. `txData()` is exactly what the RTL drives on `tx_data_bcd`.
