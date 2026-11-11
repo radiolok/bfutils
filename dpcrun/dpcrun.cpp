@@ -33,37 +33,27 @@ namespace dpc {
 // Loader
 //======================================================================
 
+// Same table as rtl/run/generate_rom.py
 int symbolToOpcode(char c)
 {
     switch (c) {
-    // Brainfuck ISA and common codes
     case 'N':  return OP_NOP;
     case 'H':  return OP_HALT;
-    case '+':  return BF_INC;
-    case '-':  return BF_DEC;
-    case '>':  return BF_AINC;
-    case '<':  return BF_ADEC;
-    case '[':  return BF_LBEG;
-    case ']':  return BF_LEND;
-    case '.':  return BF_COUT;
-    case ',':  return BF_CIN;
+    case '+':  return OP_INC;
+    case '-':  return OP_DEC;
+    case '>':  return OP_AINC;
+    case '<':  return OP_ADEC;
+    case '[':  return OP_LBEG;
+    case ']':  return OP_LEND;
+    case '.':  return OP_COUT;
+    case ',':  return OP_CIN;
     case '0':  return OP_CLRD;
-    case 'M':  return BF_CLRML;
-    case 'G':  return BF_LOAD;
-    case 'P':  return BF_STORE;
-    case 'D':  return OP_ISA0;
-    case 'B':  return OP_ISA1;
-    // Debug ISA
-    case '\a': return DBG_BELL;
-    case 'E':  return DBG_EOT;
-    case 'S':  return DBG_SOT;
-    case '{':  return DBG_LABEG;
-    case '}':  return DBG_LAEND;
-    case 'L':  return DBG_CLRL;
-    case 'I':  return DBG_CLRI;
-    case 'A':  return DBG_CLRA;
-    case 'R':  return DBG_HRST;
-    case 'r':  return DBG_SRST;
+    case 'S':  return OP_LD;      // start of loading
+    case 'E':  return OP_LD;      // end of loading in the load stream
+    case 'A':  return OP_CLRA;
+    case 'P':  return OP_MEMLOCK;
+    case '{':  return OP_LABEG;
+    case '}':  return OP_LAEND;
     default:   return -1;
     }
 }
@@ -80,24 +70,19 @@ std::vector<uint8_t> assemble(const std::string& source)
     return code;
 }
 
-char opcodeToSymbol(uint8_t op, int mode)
+char opcodeToSymbol(uint8_t op)
 {
-    static const char bf[]  = "NH+-><[].,0MGPDB";
-    static const char dbg[] = "NH\a-ES{}LI0ARrDB";
-    return (mode == ISA_BF ? bf : dbg)[op & 0xF];
+    static const char sym[] = "NH+-><[].,0SAP{}";
+    return sym[op & 0xF];
 }
 
-const char* mnemonic(uint8_t op, int mode)
+const char* mnemonic(uint8_t op)
 {
-    static const char* const bf[16] = {
+    static const char* const name[16] = {
         "NOP", "HALT", "INC", "DEC", "AINC", "ADEC", "LBEG", "LEND",
-        "COUT", "CIN", "CLRD", "CLRML", "LOAD", "STORE", "ISA0", "ISA1"
+        "COUT", "CIN", "CLRD", "LD", "CLRA", "MEMLOCK", "LABEG", "LAEND"
     };
-    static const char* const dbg[16] = {
-        "NOP", "HALT", "BELL", "RSVD", "EOT", "SOT", "LABEG", "LAEND",
-        "CLRL", "CLRI", "CLRD", "CLRA", "HRST", "SRST", "ISA0", "ISA1"
-    };
-    return (mode == ISA_BF ? bf : dbg)[op & 0xF];
+    return name[op & 0xF];
 }
 
 const char* statusName(Status s)
@@ -138,7 +123,6 @@ void Machine::powerOn()
     m_insn      = OP_NOP;
     m_overflow  = false;
 
-    m_mode      = ISA_DEBUG;   // MachineCtrl comes out of rst_n in Debug ISA
     m_loading   = false;
     m_halted    = true;
     m_phase     = PH_FETCH;
@@ -160,7 +144,7 @@ void Machine::powerOn()
 //----------------------------------------------------------------------
 void Machine::resetCounters(ResetType type)
 {
-    m_ip   = (type == RST_HARD) ? BOOT_BASE : 0;   // HARD_RST_D_CNT = 3 -> 99900
+    m_ip   = (type == RST_HARD) ? BOOT_BASE : 0;   // HARD_RST_D_CNT = 4 -> 99990
     m_ap   = 0;
     m_loop = 0;
     m_data = 0;
@@ -171,8 +155,6 @@ void Machine::resetCounters(ResetType type)
     m_loading   = false;
     m_phase     = PH_FETCH;
 
-    // S_RST_WAIT: the ISA is set by the reset type
-    m_mode    = (type == RST_SOFT) ? ISA_BF : ISA_DEBUG;
     m_rstType = type;
 
     bool runOnRst = (type == RST_HARD) ? m_cfg.runOnHardRst : m_cfg.runOnSoftRst;
@@ -294,7 +276,7 @@ void Machine::flush()
 // OP_AP_STEP (> <) and OP_AP_ZERO (CLRA).
 // MemLock is the only flag: a locked counter owns the cell and is flushed
 // before the address moves, which also releases the lock (REQ-ML-005/007).
-// After STORE this writes the same value a second time.
+// After MemLock this writes the counter into the cell MemLock took over.
 void Machine::apMove(bool zero, bool dec)
 {
     if (m_lock) {
@@ -327,19 +309,19 @@ void Machine::dataStep(bool dec)
 // IpLine
 //----------------------------------------------------------------------
 
-// MachineCtrl: loop_val_zero = insn_mode ? data_zero : ap_zero
+// MachineCtrl: loop_val_zero = op_q[3] ? ap_zero : data_zero
 bool Machine::loopValZero() const
 {
-    if (m_mode == ISA_BF)
-        return (m_lock ? m_data : m_memReg) == 0;
-    return m_ap == 0;
+    if (m_insn & 0x8)
+        return m_ap == 0;                       // { }
+    return (m_lock ? m_data : m_memReg) == 0;   // [ ]
 }
 
 // OP_NEXT
 Status Machine::fetch()
 {
     if (!m_ipCounted) {
-        // First fetch after reset, CLRI or halt: read at the current IP
+        // First fetch after reset or halt: read at the current IP
         m_ipCounted = true;
         if (m_loading)
             m_phase = PH_INSN;
@@ -354,8 +336,8 @@ Status Machine::fetch()
         return Status::Ok;
     }
 
-    bool isOpen  = (m_insn == BF_LBEG);
-    bool isClose = (m_insn == BF_LEND);
+    bool isOpen  = isLoopOpen(m_insn);
+    bool isClose = isLoopClose(m_insn);
     bool zero    = loopValZero();
     if (isOpen && zero)
         return scan(false);
@@ -368,12 +350,14 @@ Status Machine::fetch()
 }
 
 // Loop scan. The counter takes +1 for the starting bracket, +1 for every
-// bracket of the same kind, -1 for every matching one. The scan stops ON
+// bracket of the same direction, -1 for every matching one; [ ] and { } are
+// counted together (IpLine sees only x11x). The scan stops ON
 // the matching bracket, which is then decoded as an ordinary instruction.
 // Incrementing past 99 is the hardware error of REQ-CNT-007: the scan is
-// aborted and the machine halts. As in the RTL (IpLine, at_top of the loop
+// aborted and the machine stops until a reset (TC-N2: IpLine stays not
+// ready, MachineCtrl waits; no halt, IP stays on the bracket). As in the RTL (IpLine, at_top of the loop
 // counter) the overflow is caught BEFORE the step: the increment is not
-// issued and the counter stays at 99 until CLRL or a reset. A scan that
+// issued and the counter stays at 99 until a reset. A scan that
 // starts with the counter already at 99 overflows at once.
 //
 // The scan always ends. Program memory is a ring: if the brackets in it are
@@ -382,7 +366,6 @@ Status Machine::fetch()
 // to the overflow (about 10^7 reads for a lone bracket).
 Status Machine::scan(bool backward)
 {
-    const uint8_t own = backward ? BF_LEND : BF_LBEG;
 
     const uint32_t LOOP_TOP = LOOP_SIZE - 1;
 
@@ -391,12 +374,12 @@ Status Machine::scan(bool backward)
         for (;;) {
             m_ip   = backward ? wrapDec(m_ip, IP_SIZE) : wrapInc(m_ip, IP_SIZE);
             m_insn = readCode(m_ip);
-            if (m_insn == own) {
+            if (backward ? isLoopClose(m_insn) : isLoopOpen(m_insn)) {
                 if (m_loop == LOOP_TOP)
                     break;               // overflow, stand on this bracket
                 ++m_loop;
             }
-            else if (m_insn == BF_LBEG || m_insn == BF_LEND) {
+            else if (isLoopOpen(m_insn) || isLoopClose(m_insn)) {
                 --m_loop;
                 if (m_loop == 0)
                     return Status::Ok;   // matching bracket, stand on it
@@ -404,11 +387,14 @@ Status Machine::scan(bool backward)
         }
     }
 
-    // MachineCtrl halts on the rising edge of loop_overflow (REQ-CTLV2-005)
+    // TC-N2 (DekatronPC TRS v0.46): IpLine keeps ready low after the
+    // overflow, so the machine stands still until a reset; it does not enter
+    // the halt state, and Run/Step can't restart it. The error bell is the
+    // overflow level (one ring per overflow here).
     m_overflow = true;
+    m_phase    = PH_FETCH;
     if (m_cfg.bellOnError)
         bell();
-    enterHalt();
     return Status::Halted;
 }
 
@@ -416,9 +402,8 @@ Status Machine::scan(bool backward)
 // MachineCtrl
 //----------------------------------------------------------------------
 
-// S_INSN_IN: accept one opcode from InsnIn and write it at IP. EOT is the
-// only code that is not written; it is recognised on {insn_mode, insn_in},
-// so only in Debug ISA.
+// S_INSN_IN: accept one opcode from InsnIn and write it at IP. LD (EOT) is
+// the only code that is not written.
 bool Machine::takeInsn()
 {
     if (m_insnIn.empty())
@@ -426,28 +411,20 @@ bool Machine::takeInsn()
     uint8_t op = m_insnIn.front();
     m_insnIn.pop_front();
     m_insn = op;
-    if (!(m_mode == ISA_DEBUG && op == DBG_EOT))
+    if (op != OP_LD)
         writeCode(m_ip, op);
     return true;
 }
 
-// Load mode: only EOT, ISA0 and ISA1 act; everything else is just stored.
-// RTL: ISA1 switches the ISA during loading, after which 0x4 is '>' and is
-// stored instead of ending the load.
+// Load mode: only LD (EOT) acts; everything else is just stored.
 void Machine::decodeLoading()
 {
-    const uint8_t opFull = static_cast<uint8_t>((m_mode << 4) | m_insn);
-    switch (opFull) {
-    case 0x04:                                  // EOT
+    if (m_insn == OP_LD) {
         m_loading = false;
         if (m_cfg.softRstOnEot)
             resetCounters(RST_SOFT);
         else
             enterHalt();
-        break;
-    case 0x0E: case 0x1E: m_mode = ISA_DEBUG; break;
-    case 0x0F: case 0x1F: m_mode = ISA_BF;    break;
-    default: break;
     }
 }
 
@@ -460,59 +437,43 @@ void Machine::decode()
         return;
     }
 
-    const uint8_t opFull = static_cast<uint8_t>((m_mode << 4) | m_insn);
-    switch (opFull) {
-
-    //--- common ----------------------------------------------------------
-    case 0x01: case 0x11:                       // HALT
+    switch (m_insn) {
+    case OP_HALT:
         if (m_cfg.bellOnHalt)
             bell();
         enterHalt();
         break;
 
-    case 0x0E: case 0x1E: m_mode = ISA_DEBUG; break;   // ISA0
-    case 0x0F: case 0x1F: m_mode = ISA_BF;    break;   // ISA1
-
-    // Brackets: IpLine decides at the next fetch. In BF ISA MachineCtrl
+    // Brackets: IpLine decides at the next fetch. Before [ ] MachineCtrl
     // first makes the zero flag valid (AP_TEST): one read if the cell value
-    // is neither in the counter nor in the memory register.
-    case 0x06: case 0x07:
-        break;
-    case 0x16: case 0x17:
+    // is neither in the counter nor in the memory register. { } test AP.
+    case OP_LBEG: case OP_LEND:
         if (!m_lock && !m_memHere)
             memRead();
         break;
+    case OP_LABEG: case OP_LAEND:
+        break;
 
-    case 0x0A: case 0x1A:                       // CLRD, [-]  (REQ-ML-009)
+    case OP_CLRD:                               // [-]  (REQ-ML-009)
         m_data  = 0;
         m_lock  = true;
         break;
 
-    //--- Debug ISA -------------------------------------------------------
-    case 0x02: bell(); break;                   // BELL (OPEN-007)
-    case 0x05: m_loading = true; break;         // SOT, ISA unchanged (OPEN-003)
-    case 0x08:                                  // CLRL
-        m_loop     = 0;
-        m_overflow = false;
-        break;
-    case 0x09:                                  // CLRI
-        // RTL: only the IP counter. TRS REQ-ML-006 also clears MemLock.
-        m_ip        = 0;
-        m_ipCounted = false;
-        break;
-    case 0x0B: apMove(true, false); break;      // CLRA
-    case 0x0C: resetCounters(RST_HARD); break;  // HRST
-    case 0x0D: resetCounters(RST_SOFT); break;  // SRST
+    case OP_LD: m_loading = true; break;        // SOT
+    case OP_CLRA: apMove(true, false); break;
 
-    //--- Brainfuck ISA ---------------------------------------------------
-    case 0x12: case 0x13: dataStep(m_insn & 1); break;           // + -
-    case 0x14: case 0x15: apMove(false, m_insn & 1); break;      // > <
+    case OP_MEMLOCK:                            // flag without a load
+        m_lock = true;
+        break;
 
-    case 0x18:                                  // COUT
+    case OP_INC: case OP_DEC:   dataStep(m_insn & 1); break;      // + -
+    case OP_AINC: case OP_ADEC: apMove(false, m_insn & 1); break; // > <
+
+    case OP_COUT:
         // MachineCtrl issues AP_COUT, then tx_vld. Output is always the
         // data counter: without MemLock ApLine loads the cell into it
         // first (reading it if the memory register is elsewhere). MemLock
-        // is unchanged, as with LOAD (OPEN-017).
+        // is unchanged (OPEN-017).
         if (!m_lock) {
             if (!m_memHere)
                 memRead();
@@ -521,30 +482,13 @@ void Machine::decode()
         cout(m_data);
         break;
 
-    case 0x19:                                  // CIN
+    case OP_CIN:
         if (m_cfg.bellOnCin)
             bell();
         m_phase = PH_CIN;
         break;
 
-    case 0x1B:                                  // CLRML
-        if (m_lock)
-            flush();
-        m_lock = false;
-        break;
-
-    case 0x1C:                                  // LOAD, MemLock unchanged
-        if (!m_memHere)
-            memRead();
-        m_data = m_memReg;
-        break;
-
-    case 0x1D:                                  // STORE, MemLock unchanged
-        flush();
-        break;
-
-    // NOP, reserved 0x3, EOT outside loading (REQ-CTLV2-006)
-    default:
+    default:                                    // NOP
         break;
     }
 }
@@ -572,7 +516,7 @@ Status Machine::finishCin()
 
 Status Machine::step()
 {
-    if (m_halted)
+    if (m_halted || m_overflow)     // halted, or stopped by an overflow
         return Status::Halted;
 
     switch (m_phase) {
@@ -630,7 +574,7 @@ static void usage()
         "dpcrun -f <file> [options]\n"
         "  Runs DekatronPC source text: the loader turns it into opcodes,\n"
         "  puts them at address 0 followed by HALT, then Soft Reset + Run.\n"
-        "  -b <file>  bootloader source for the ROM at 99900\n"
+        "  -b <file>  bootloader source for the ROM at 99990\n"
         "  -B         start with Hard Reset (bootloader) instead of Soft Reset\n"
         "  -a <top>   AP limit, default 29999 (OPEN-001)\n"
         "  -n <max>   stop after <max> instructions\n"
@@ -704,7 +648,7 @@ int main(int argc, char** argv)
         if (trace) {
             fprintf(stderr, "IRET:%llu IP:%05u %-5s LOOP:%02u AP:%05u DATA:%3u ML:%d %s\n",
                     static_cast<unsigned long long>(m.iret()), m.ip(),
-                    dpc::mnemonic(m.insn(), m.insnMode()), m.loopCount(), m.ap(),
+                    dpc::mnemonic(m.insn()), m.loopCount(), m.ap(),
                     m.txData(), m.memLock(), dpc::statusName(s));
         }
         if (s != dpc::Status::Ok)

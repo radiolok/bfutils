@@ -3,10 +3,10 @@ All rights reserved. See dpcrun.cpp for the full license text. */
 
 // DekatronPC golden model (REQ-GM-001/003/004).
 //
-// An instruction-level model of the DekatronPC machine: both ISAs (Debug and
-// Brainfuck), MemLock with the lazy data read, SOT/EOT program loading, hard
-// and soft resets, the loop-nesting counter with its overflow error and the
-// write-protected bootloader ROM.
+// An instruction-level model of the DekatronPC machine: the 4-bit ISA16
+// (doc/isa16.md of the dekatronpc repository), MemLock with the lazy data
+// read, LD (SOT/EOT) program loading, hard and soft resets, the loop-nesting
+// counter with its overflow error and the write-protected bootloader ROM.
 //
 // The model mirrors the RTL (rtl/DekatronPC/MachineCtrl.sv, IpLine.sv,
 // ApLine.sv) as it is, including the places where the RTL and the TRS still
@@ -31,51 +31,38 @@ namespace dpc {
 // Architecture sizes (rtl/parameters.sv)
 //----------------------------------------------------------------------
 const uint32_t IP_SIZE    = 100000;   // 5 dekatrons: 0..99999
-const uint32_t BOOT_BASE  = 99900;    // bootloader ROM, one 10x10 bank
-const uint32_t BOOT_SIZE  = 100;
+const uint32_t BOOT_BASE  = 99990;    // bootloader ROM, one decade
+const uint32_t BOOT_SIZE  = 10;
 const uint32_t LOOP_SIZE  = 100;      // 2 dekatrons: 0..99 (LOOP_DEKATRON_NUM)
 const uint32_t DATA_TOP   = 255;      // 3 dekatrons, TOP_LIMIT_MODE
 const uint32_t AP_TOP_BF  = 29999;    // OPEN-001: 29999 or 99999
 
 //----------------------------------------------------------------------
-// Opcodes. Decoding is always done on the pair {mode, opcode}.
+// Opcodes: one 4-bit instruction set (ISA16), no modes. 0x0..0xA are the
+// Brainfuck codes. Brackets are x11x: bit 0 open/close, bit 3 what is
+// tested (0 the cell, 1 AP); a scan counts both kinds together.
 //----------------------------------------------------------------------
-enum Isa { ISA_DEBUG = 0, ISA_BF = 1 };
-
 enum Opcode : uint8_t {
-    // Common to both ISAs
     OP_NOP   = 0x0,
     OP_HALT  = 0x1,
-    OP_CLRD  = 0xA,
-    OP_ISA0  = 0xE,
-    OP_ISA1  = 0xF,
-
-    // Debug ISA (mode 0)
-    DBG_BELL  = 0x2,
-    DBG_RSVD  = 0x3,   // reserved, NOP
-    DBG_EOT   = 0x4,
-    DBG_SOT   = 0x5,
-    DBG_LABEG = 0x6,   // {  skip if AP == 0
-    DBG_LAEND = 0x7,   // }  repeat if AP != 0
-    DBG_CLRL  = 0x8,
-    DBG_CLRI  = 0x9,
-    DBG_CLRA  = 0xB,
-    DBG_HRST  = 0xC,
-    DBG_SRST  = 0xD,
-
-    // Brainfuck ISA (mode 1)
-    BF_INC   = 0x2,    // +
-    BF_DEC   = 0x3,    // -
-    BF_AINC  = 0x4,    // >
-    BF_ADEC  = 0x5,    // <
-    BF_LBEG  = 0x6,    // [  skip if data == 0
-    BF_LEND  = 0x7,    // ]  repeat if data != 0
-    BF_COUT  = 0x8,    // .
-    BF_CIN   = 0x9,    // ,
-    BF_CLRML = 0xB,
-    BF_LOAD  = 0xC,
-    BF_STORE = 0xD
+    OP_INC   = 0x2,    // +
+    OP_DEC   = 0x3,    // -
+    OP_AINC  = 0x4,    // >
+    OP_ADEC  = 0x5,    // <
+    OP_LBEG  = 0x6,    // [  skip if data == 0
+    OP_LEND  = 0x7,    // ]  repeat if data != 0
+    OP_COUT  = 0x8,    // .
+    OP_CIN   = 0x9,    // ,
+    OP_CLRD  = 0xA,    // [-] sets MemLock
+    OP_LD    = 0xB,    // SOT; EOT in the load stream (not stored)
+    OP_CLRA  = 0xC,
+    OP_MEMLOCK = 0xD,  // sets the MemLock flag without a load: cell := data counter
+    OP_LABEG = 0xE,    // {  skip if AP == 0
+    OP_LAEND = 0xF     // }  repeat if AP != 0
 };
+
+inline bool isLoopOpen(uint8_t op)  { return (op & 0x7) == 0x6; }
+inline bool isLoopClose(uint8_t op) { return (op & 0x7) == 0x7; }
 
 //----------------------------------------------------------------------
 // Loader: text <-> opcodes. Same symbol table as rtl/run/generate_rom.py.
@@ -88,9 +75,9 @@ int symbolToOpcode(char c);
 // Converts source text to opcodes, skipping everything that isn't a symbol.
 std::vector<uint8_t> assemble(const std::string& source);
 
-// Printable symbol and mnemonic of an opcode in the given ISA.
-char        opcodeToSymbol(uint8_t op, int mode);
-const char* mnemonic(uint8_t op, int mode);
+// Printable symbol and mnemonic of an opcode.
+char        opcodeToSymbol(uint8_t op);
+const char* mnemonic(uint8_t op);
 
 //----------------------------------------------------------------------
 // Panel switches and parameters
@@ -111,7 +98,7 @@ struct Config {
 //----------------------------------------------------------------------
 enum class Status {
     Ok,          // instruction retired, machine keeps running
-    Halted,      // machine is (or just became) halted
+    Halted,      // machine is (or just became) halted, or stopped by a loop overflow
     WaitInput    // CIN or load mode has no input; retry after input
 };
 
@@ -124,14 +111,14 @@ class Machine {
 public:
     explicit Machine(const Config& cfg = Config());
 
-    // Power-on: counters at zero, memories cleared, halted in Debug ISA.
+    // Power-on: counters at zero, memories cleared, halted.
     // rst_n in the RTL resets logic only; the model has no separate
     // "counter" state to keep, so this is the full initial state.
     void powerOn();
 
     //--- Panel -----------------------------------------------------------
-    void hardReset();          // HardRstKey or HRST
-    void softReset();          // SoftRstKey or SRST
+    void hardReset();          // HardRstKey
+    void softReset();          // SoftRstKey or SoftRstOnEOT
     void run();                // Run key: leave halt
     void startLoading();       // InsnLoadingStart: load from the current IP
 
@@ -177,7 +164,6 @@ public:
     // Architectural value of the current cell.
     uint8_t  cellValue() const   { return m_lock ? m_data : m_dataMem[m_ap]; }
     bool     memLock() const     { return m_lock; }
-    int      insnMode() const    { return m_mode; }
     bool     loading() const     { return m_loading; }
     bool     halted() const      { return m_halted; }
     bool     loopOverflow() const { return m_overflow; }
@@ -243,7 +229,6 @@ private:
     bool     m_overflow;
 
     // MachineCtrl
-    int      m_mode;
     bool     m_loading;
     bool     m_halted;
     Phase    m_phase;
